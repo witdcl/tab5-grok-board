@@ -14,5 +14,5 @@
 
 // 微信读书荐书板：每日片单（GitHub Pages 或局域网旁路）
 // Pages 示例：https://<user>.github.io/tab5-grok-board/weread_day.json
-#define WEREAD_DAY_URL "https://YOUR_USER.github.io/tab5-grok-board/weread_day.json"
-#define WEREAD_BOOK_URL "https://YOUR_USER.github.io/tab5-grok-board/weread_book.json"
+#define WEREAD_DAY_URL "https://witdcl.github.io/tab5-grok-board/weread_day.json"
+#define WEREAD_BOOK_URL "https://witdcl.github.io/tab5-grok-board/weread_book.json"
