@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>设置 · TAB5 荐书板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font: "Noto Sans SC", "PingFang SC", sans-serif;
+      --bg: #070605;
+      --paper: #efe4d0;
+      --brass: #c4a15a;
+      --muted: #9a9082;
+      --line: #3a342c;
+      --ink: #1c1814;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 70% 45% at 50% -8%, #2e261c 0%, transparent 55%),
+        var(--bg);
+      color: var(--paper);
+      font-family: var(--font);
+      padding: 28px 18px 64px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    a { color: var(--brass); text-decoration: none; }
+    a:hover { color: #e0c888; }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.4em;
+      color: var(--muted);
+    }
+    .sub {
+      color: #6e6558;
+      font-size: 13px;
+      line-height: 1.7;
+      margin: 0 0 28px;
+    }
+    section {
+      border: 1px solid var(--line);
+      padding: 22px 22px 18px;
+      margin-bottom: 18px;
+      background: rgba(28, 24, 20, 0.55);
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      color: var(--brass);
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 12px 0 6px;
+    }
+    input, textarea {
+      width: 100%;
+      background: #100e0c;
+      border: 1px solid var(--line);
+      color: var(--paper);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 2px;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    button {
+      appearance: none;
+      border: 1px solid var(--brass);
+      background: transparent;
+      color: var(--brass);
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      padding: 11px 16px;
+      cursor: pointer;
+    }
+    button.primary { background: var(--brass); color: #1a140c; font-weight: 700; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .hint {
+      margin: 10px 0 0;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #6e6558;
+    }
+    .msg {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      min-height: 1.4em;
+    }
+    .msg.ok { color: #8fbf7a; }
+    .msg.err { color: #c47a5a; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+      color: #d2c4a8;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>设置</h1>
+    <p class="sub">
+      <a href="./">← 返回预览</a>
+      · 偏好写入仓库的 <code>settings.json</code>；「立即重生」触发 GitHub Actions 重新找书并推送。
+    </p>
+
+    <section>
+      <h2>生成偏好</h2>
+      <div class="row">
+        <div>
+          <label for="playlist_size">片单本数</label>
+          <input id="playlist_size" type="number" min="1" max="5" step="1" />
+        </div>
+        <div>
+          <label for="history_days">历史去重天数</label>
+          <input id="history_days" type="number" min="1" max="30" step="1" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="daily_hour">每日生成时（北京时间）</label>
+          <input id="daily_hour" type="number" min="0" max="23" step="1" />
+        </div>
+        <div>
+          <label for="timezone">时区</label>
+          <input id="timezone" type="text" readonly />
+        </div>
+      </div>
+      <label for="note">备注</label>
+      <textarea id="note"></textarea>
+      <div class="actions">
+        <button type="button" class="primary" id="btn-save">保存到仓库</button>
+        <button type="button" id="btn-reload">重新加载</button>
+      </div>
+      <p class="hint">保存需要下方的 GitHub Token（contents:write）。也可直接在仓库里改 <code>docs/settings.json</code>。</p>
+      <div class="msg" id="settings-msg"></div>
+    </section>
+
+    <section>
+      <h2>立即重生</h2>
+      <p class="hint" style="margin-top:0">
+        触发工作流 <code>daily.yml</code>：找书 → 生成文案 → 提交 <code>weread_day.json</code> → Pages 更新。约 3–8 分钟。
+      </p>
+      <div class="actions">
+        <button type="button" class="primary" id="btn-run">立即重生</button>
+        <a id="actions-link" href="#" target="_blank" rel="noopener">打开 Actions</a>
+      </div>
+      <div class="msg" id="run-msg"></div>
+    </section>
+
+    <section>
+      <h2>GitHub Token（仅存本机浏览器）</h2>
+      <label for="repo">仓库 <code>owner/name</code></label>
+      <input id="repo" type="text" placeholder="yourname/tab5-grok-board" autocomplete="off" />
+      <label for="token">Fine-grained PAT（contents:write + actions:write）</label>
+      <input id="token" type="password" placeholder="github_pat_…" autocomplete="off" />
+      <div class="actions">
+        <button type="button" id="btn-token-save">记住到本机</button>
+        <button type="button" id="btn-token-clear">清除</button>
+      </div>
+      <p class="hint">Token 只留在你的浏览器 localStorage，不会上传到 Pages。公开电脑请勿填写。</p>
+      <div class="msg" id="token-msg"></div>
+    </section>
+
+    <section>
+      <h2>设备地址</h2>
+      <p class="hint" style="margin-top:0">
+        Tab5 固件 <code>WEREAD_DAY_URL</code> 指向：
+      </p>
+      <p><code id="device-url">./weread_day.json</code></p>
+    </section>
+  </div>
+
+  <script>
+    const LS_TOKEN = "tab5_weread_gh_token";
+    const LS_REPO = "tab5_weread_gh_repo";
+    let siteConfig = { repo: "", workflow: "daily.yml" };
+
+    function $(id) { return document.getElementById(id); }
+    function setMsg(id, text, ok) {
+      const el = $(id);
+      el.textContent = text || "";
+      el.className = "msg " + (ok === true ? "ok" : ok === false ? "err" : "");
+    }
+    function currentRepo() {
+      return ($("repo").value || siteConfig.repo || "").trim();
+    }
+    function pagesDayUrl() {
+      const repo = currentRepo();
+      if (!repo.includes("/")) return new URL("./weread_day.json", location.href).href;
+      const [owner, name] = repo.split("/");
+      return `https://${owner}.github.io/${name}/weread_day.json`;
+    }
+    function refreshDeviceUrl() {
+      $("device-url").textContent = pagesDayUrl();
+      const repo = currentRepo();
+      $("actions-link").href = repo
+        ? `https://github.com/${repo}/actions/workflows/${siteConfig.workflow || "daily.yml"}`
+        : "#";
+    }
+    function fillSettings(s) {
+      $("playlist_size").value = s.playlist_size ?? 5;
+      $("history_days").value = s.history_days ?? 7;
+      $("daily_hour").value = s.daily_hour ?? 7;
+      $("timezone").value = s.timezone || "Asia/Shanghai";
+      $("note").value = s.note || "";
+    }
+    function readSettingsForm() {
+      return {
+        playlist_size: Number($("playlist_size").value) || 5,
+        history_days: Number($("history_days").value) || 7,
+        daily_hour: Number($("daily_hour").value) || 7,
+        timezone: $("timezone").value || "Asia/Shanghai",
+        note: $("note").value || "",
+      };
+    }
+    async function loadAll() {
+      try {
+        const [sRes, cRes] = await Promise.all([
+          fetch(`./settings.json?t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`./site-config.json?t=${Date.now()}`, { cache: "no-store" }),
+        ]);
+        if (sRes.ok) fillSettings(await sRes.json());
+        if (cRes.ok) siteConfig = await cRes.json();
+      } catch (_) { /* ignore */ }
+      $("token").value = localStorage.getItem(LS_TOKEN) || "";
+      $("repo").value = localStorage.getItem(LS_REPO) || siteConfig.repo || "";
+      refreshDeviceUrl();
+    }
+    async function gh(path, method, body) {
+      const token = $("token").value.trim();
+      const repo = currentRepo();
+      if (!token || !repo) throw new Error("请先填写仓库与 Token");
+      const res = await fetch(`https://api.github.com/repos/${repo}${path}`, {
+        method,
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+      if (!res.ok) throw new Error((data && data.message) || `HTTP ${res.status}`);
+      return data;
+    }
+    async function putFile(path, contentObj, message) {
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(contentObj, null, 2) + "\n")));
+      let sha;
+      try {
+        const cur = await gh(`/contents/${path}`, "GET");
+        sha = cur.sha;
+      } catch (_) { /* new file */ }
+      return gh(`/contents/${path}`, "PUT", { message, content, sha, branch: "main" });
+    }
+
+    $("btn-reload").addEventListener("click", () => loadAll());
+    $("btn-token-save").addEventListener("click", () => {
+      localStorage.setItem(LS_TOKEN, $("token").value.trim());
+      localStorage.setItem(LS_REPO, $("repo").value.trim());
+      refreshDeviceUrl();
+      setMsg("token-msg", "已保存到本机浏览器。", true);
+    });
+    $("btn-token-clear").addEventListener("click", () => {
+      localStorage.removeItem(LS_TOKEN);
+      localStorage.removeItem(LS_REPO);
+      $("token").value = "";
+      setMsg("token-msg", "已清除。", true);
+    });
+    $("repo").addEventListener("input", refreshDeviceUrl);
+    $("btn-save").addEventListener("click", async () => {
+      setMsg("settings-msg", "保存中…");
+      try {
+        const settings = readSettingsForm();
+        await putFile("docs/settings.json", settings, "chore: update weread settings");
+        setMsg("settings-msg", "settings.json 已写入仓库。", true);
+      } catch (e) {
+        setMsg("settings-msg", String(e.message || e), false);
+      }
+    });
+    $("btn-run").addEventListener("click", async () => {
+      setMsg("run-msg", "触发中…");
+      try {
+        const wf = siteConfig.workflow || "daily.yml";
+        await gh(`/actions/workflows/${wf}/dispatches`, "POST", {
+          ref: "main",
+          inputs: { reason: "settings-page" },
+        });
+        setMsg("run-msg", "已触发。稍后刷新预览页查看新片单。", true);
+      } catch (e) {
+        setMsg("run-msg", String(e.message || e), false);
+      }
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

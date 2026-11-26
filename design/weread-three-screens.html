@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tab5 微信读书 · 交互预览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display: "ZCOOL XiaoWei", "Noto Serif SC", "Songti SC", serif;
+      --font-body: "Noto Serif SC", "Songti SC", "Source Han Serif SC", Georgia, serif;
+      --font-ui: "IBM Plex Sans", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+      --ink: #12100e;
+      --paper: #f0e6d4;
+      --paper-soft: #e8dcc8;
+      --brass: #c4a15a;
+      --brass-dim: #8a7040;
+      --muted: #9a9082;
+      --text: #241e16;
+      --hair: rgba(196, 161, 90, 0.35);
+      --dwell: 6500ms;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 70% 45% at 50% -8%, #2e261c 0%, transparent 55%),
+        #070605;
+      color: var(--paper);
+      font-family: var(--font-body);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 28px 16px 56px;
+      user-select: none;
+    }
+    h1 {
+      margin: 6px 0 0;
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.4em;
+      color: var(--muted);
+    }
+    .hint {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: #5a5348;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .hint kbd {
+      font-family: inherit;
+      border: 1px solid #3a342c;
+      padding: 1px 6px;
+      color: var(--muted);
+    }
+
+    /* Device */
+    .device {
+      width: min(1040px, 100%);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #2e2922;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.05) inset,
+        0 50px 120px rgba(0,0,0,.7);
+      cursor: grab;
+      touch-action: pan-y;
+    }
+    .device:active { cursor: grabbing; }
+    .device::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.06;
+      z-index: 20;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .status {
+      position: absolute;
+      top: 18px; left: 28px; right: 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 30;
+    }
+    .status .wifi {
+      width: 18px; height: 18px;
+      display: block;
+      transition: color .6s var(--ease), opacity .6s var(--ease);
+    }
+    .device:not([data-page="2"]) .status .wifi { color: var(--muted); opacity: 0.9; }
+    .device[data-page="2"] .status .wifi { color: #7a7164; opacity: 0.85; }
+    .status .clock {
+      font-family: var(--font-ui);
+      font-weight: 500;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.2em;
+      transition: color .6s var(--ease);
+    }
+    .device:not([data-page="2"]) .status .clock { color: var(--paper); }
+    .device[data-page="2"] .status .clock { color: var(--text); }
+
+    /* Panels */
+    .panel {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(28px) scale(0.985);
+      transition:
+        opacity .75s var(--ease),
+        transform .85s var(--ease),
+        visibility 0s linear .75s;
+      z-index: 1;
+    }
+    .panel.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+      transition:
+        opacity .75s var(--ease),
+        transform .85s var(--ease),
+        visibility 0s linear 0s;
+      z-index: 2;
+    }
+    .panel.is-leave {
+      opacity: 0;
+      visibility: visible;
+      transform: translateX(-22px) scale(0.99);
+      z-index: 1;
+    }
+    .panel .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity .7s var(--ease), transform .7s var(--ease);
+    }
+    .panel.is-active .reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .panel.is-active .reveal:nth-child(1) { transition-delay: .08s; }
+    .panel.is-active .reveal:nth-child(2) { transition-delay: .16s; }
+    .panel.is-active .reveal:nth-child(3) { transition-delay: .24s; }
+    .panel.is-active .reveal:nth-child(4) { transition-delay: .32s; }
+    .panel.is-active .reveal:nth-child(5) { transition-delay: .4s; }
+
+    /* Page 0 — cover */
+    #p0 {
+      background:
+        radial-gradient(ellipse at 18% 35%, rgba(196,161,90,.07), transparent 45%),
+        radial-gradient(ellipse at 85% 75%, rgba(70,50,25,.22), transparent 50%),
+        var(--ink);
+    }
+    #p0 .v-rule {
+      position: absolute; left: 39%; top: 18%; bottom: 18%;
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--hair), transparent);
+      transform: scaleY(0);
+      transform-origin: center top;
+      transition: transform .9s var(--ease) .15s;
+    }
+    #p0.is-active .v-rule { transform: scaleY(1); }
+    /* 封面图来自微信读书，本身含书名作者，屏上不再叠字 */
+    #p0 .cover {
+      position: absolute; left: 6%; top: 15%; bottom: 15%; width: 27%;
+      border: 1px solid #4a3d2c;
+      box-shadow: 12px 18px 50px rgba(0,0,0,.55);
+      overflow: hidden;
+      background: #1a1510;
+    }
+    #p0 .cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.02);
+      transition: transform 8s var(--ease);
+    }
+    #p0.is-active .cover img { transform: scale(1.06); }
+    #p0 .quote {
+      position: absolute; left: 45%; right: 7%; top: 28%;
+      color: var(--paper);
+    }
+    #p0 .quote .tag {
+      font-family: var(--font-ui);
+      font-size: 11px; letter-spacing: 0.42em; color: var(--brass); margin-bottom: 22px;
+    }
+    #p0 .quote blockquote {
+      margin: 0; padding: 0 0 0 20px; border: 0;
+      border-left: 2px solid var(--brass);
+      font-size: clamp(22px, 2.7vw, 32px); line-height: 1.7; font-weight: 500;
+    }
+    #p0 .quote .src {
+      margin-top: 28px; padding-left: 20px;
+      color: var(--muted); font-size: 11px; letter-spacing: 0.18em;
+      font-family: var(--font-ui);
+    }
+    #p0 .slot {
+      position: absolute; left: 45%; bottom: 58px;
+      font-family: var(--font-ui);
+      font-size: 10px; letter-spacing: 0.28em; color: #5c564c;
+    }
+
+    /* Page 1 — intro */
+    #p1 {
+      background:
+        radial-gradient(ellipse at 70% 20%, rgba(196,161,90,.05), transparent 40%),
+        var(--ink);
+    }
+    #p1 .sheet {
+      position: absolute; left: 5%; right: 5%; top: 14%; bottom: 13%;
+      background: linear-gradient(180deg, var(--paper) 0%, var(--paper-soft) 100%);
+      color: var(--text);
+      padding: 42px 52px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      display: flex; flex-direction: column;
+    }
+    #p1 .sheet::before {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--brass), transparent);
+      opacity: 0.7;
+      transform: scaleX(0);
+      transition: transform .8s var(--ease) .2s;
+    }
+    #p1.is-active .sheet::before { transform: scaleX(1); }
+    #p1 .head {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+    }
+    #p1 .head h2 {
+      margin: 0; font-size: clamp(36px, 4.2vw, 46px);
+      letter-spacing: 0.22em; font-weight: 400;
+      font-family: var(--font-display);
+    }
+    #p1 .head .author {
+      font-family: var(--font-ui);
+      font-size: 13px; letter-spacing: 0.16em; color: #6e6558;
+      padding-bottom: 8px; white-space: nowrap;
+    }
+    #p1 .facts {
+      display: flex; flex-wrap: wrap; gap: 10px 18px;
+      margin: 16px 0 22px;
+      font-family: var(--font-ui);
+      font-size: 11px; letter-spacing: 0.14em; color: #7a7164;
+    }
+    #p1 .facts span {
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    #p1 .facts span::before {
+      content: "";
+      width: 4px; height: 4px; border-radius: 50%; background: var(--brass);
+    }
+    #p1 .divider {
+      width: 48px; height: 1px; background: var(--brass); margin-bottom: 20px; opacity: 0.65;
+    }
+    #p1 .body {
+      font-size: clamp(16px, 1.85vw, 19px); line-height: 1.95; color: #3d352b;
+      max-width: 42em; text-align: justify;
+    }
+    #p1 .body em {
+      font-style: normal; color: var(--brass-dim); letter-spacing: 0.06em;
+    }
+
+    /* Page 2 — 荐读 full */
+    #p2 {
+      background: linear-gradient(165deg, #f3ebdc 0%, #e9dcc7 55%, #e2d4bc 100%);
+      color: var(--text);
+    }
+    #p2 .glow {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 20%, rgba(196,161,90,.1), transparent 40%),
+        radial-gradient(ellipse at 90% 85%, rgba(60,40,20,.07), transparent 45%);
+      pointer-events: none;
+    }
+    #p2 .content {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 10% 11% 11%;
+    }
+    #p2 .corner {
+      position: absolute; width: 28px; height: 28px;
+      border-color: var(--brass); border-style: solid; opacity: 0.45;
+    }
+    #p2 .corner.tl { top: 72px; left: 48px; border-width: 1px 0 0 1px; }
+    #p2 .corner.br { bottom: 56px; right: 48px; border-width: 0 1px 1px 0; }
+    #p2 .kicker {
+      font-family: var(--font-ui);
+      font-size: 12px; letter-spacing: 0.5em; color: var(--brass-dim);
+      margin-bottom: 16px;
+    }
+    #p2 .rule {
+      width: 56px; height: 2px; background: var(--brass); margin-bottom: 24px; opacity: 0.85;
+      transform: scaleX(0); transform-origin: left center;
+      transition: transform .7s var(--ease) .25s;
+    }
+    #p2.is-active .rule { transform: scaleX(1); }
+    #p2 .about {
+      margin: 0 0 8px;
+      font-size: clamp(16px, 1.8vw, 20px);
+      letter-spacing: 0.36em; font-weight: 500; color: #6e6558;
+    }
+    #p2 .book-line {
+      margin: 0 0 26px;
+      font-size: clamp(30px, 3.8vw, 44px);
+      letter-spacing: 0.2em; font-weight: 400;
+      font-family: var(--font-display);
+    }
+    #p2 .body {
+      max-width: 36em;
+      font-size: clamp(16px, 1.95vw, 21px);
+      line-height: 2; color: #3a3228; text-align: justify;
+    }
+    #p2 .foot {
+      margin-top: 34px;
+      font-family: var(--font-ui);
+      font-size: 11px; letter-spacing: 0.36em; color: var(--brass-dim);
+    }
+
+    /* Nav */
+    .nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 18px;
+      display: flex; justify-content: center; align-items: center;
+      gap: 14px;
+      z-index: 30;
+    }
+    .nav button {
+      appearance: none; border: 0; background: transparent; padding: 10px 4px;
+      cursor: pointer; position: relative;
+    }
+    .nav button .dot {
+      display: block; width: 7px; height: 7px; border-radius: 50%;
+      background: #4a433a;
+      transition: transform .35s var(--ease), background .35s var(--ease);
+    }
+    .device[data-page="2"] .nav button .dot { background: #cbbca3; }
+    .nav button[aria-current="true"] .dot {
+      background: var(--brass);
+      transform: scale(1.35);
+    }
+    .device[data-page="2"] .nav button[aria-current="true"] .dot {
+      background: var(--brass-dim);
+    }
+    .nav button .ring {
+      position: absolute; left: 50%; top: 50%;
+      width: 18px; height: 18px; margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      background: conic-gradient(var(--brass) var(--p, 0%), transparent 0);
+      opacity: 0;
+      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+    }
+    .nav button[aria-current="true"] .ring {
+      opacity: 0.9;
+      animation: ringFill var(--dwell) linear forwards;
+    }
+    .device.is-paused .nav button[aria-current="true"] .ring {
+      animation-play-state: paused;
+    }
+    .edge {
+      position: absolute; top: 0; bottom: 0; width: 18%;
+      z-index: 25; cursor: pointer;
+    }
+    .edge.left { left: 0; }
+    .edge.right { right: 0; }
+
+    @keyframes ringFill {
+      from { --p: 0%; }
+      to { --p: 100%; }
+    }
+    @property --p {
+      syntax: "<percentage>";
+      inherits: false;
+      initial-value: 0%;
+    }
+  </style>
+</head>
+<body>
+  <h1>TAB5 · 微信读书推荐板</h1>
+  <p class="hint">
+    点击左右空白 / 圆点切换 · <kbd>←</kbd> <kbd>→</kbd> · 悬停暂停 · 约 6.5 秒自动下一屏
+  </p>
+
+  <div class="device" id="device" data-page="0">
+    <div class="status">
+      <svg class="wifi" viewBox="0 0 24 24" aria-label="Wi-Fi" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12.5c4-4 10-4 14 0" />
+        <path d="M8.2 15.5c2.3-2.2 5.3-2.2 7.6 0" />
+        <circle cx="12" cy="18.2" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M2.5 9.2c6-5.6 13-5.6 19 0" opacity=".55" />
+      </svg>
+      <span class="clock" data-clock>--:--</span>
+    </div>
+
+    <section class="panel is-active" id="p0" data-index="0" aria-hidden="false">
+      <div class="v-rule"></div>
+      <div class="cover reveal">
+        <img
+          src="https://wfqqreader-1252317822.image.myqcloud.com/cover/587/3300045871/t7_3300045871.jpg"
+          alt="书籍封面"
+          referrerpolicy="no-referrer"
+        />
+      </div>
+      <div class="quote reveal">
+        <div class="tag">金句</div>
+        <blockquote>人是为活着本身而活着的，而不是为了活着之外的任何事物所活着。</blockquote>
+        <div class="src">热门划线</div>
+      </div>
+      <div class="slot reveal">今日荐读 · 第 2 本</div>
+    </section>
+
+    <section class="panel" id="p1" data-index="1" aria-hidden="true">
+      <div class="sheet">
+        <div class="head reveal">
+          <h2>活着</h2>
+          <div class="author">余华</div>
+        </div>
+        <div class="facts reveal">
+          <span>小说</span>
+          <span>评分 92.4</span>
+          <span>12.4 万人评</span>
+          <span>约 11 万字</span>
+        </div>
+        <div class="divider reveal"></div>
+        <div class="body reveal">
+          福贵从少爷沦为雇农，在战乱与饥荒里一次次失去亲人，却仍把日子过下去。
+          余华用极克制的口语，写普通人的韧性——<em>不是英雄史，是还要明天。</em>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="p2" data-index="2" aria-hidden="true">
+      <div class="glow"></div>
+      <div class="corner tl"></div>
+      <div class="corner br"></div>
+      <div class="content">
+        <div class="kicker reveal">荐读</div>
+        <div class="rule"></div>
+        <div class="about reveal">关于这本书</div>
+        <div class="book-line reveal">活着</div>
+        <div class="body reveal">
+          余华把苦难写得几乎没有抒情，却让人读完后更想好好吃饭、好好睡一觉。
+          福贵的一生不教你成功学，只反复确认一件事：人还在，故事就还没完。
+          若想读一本语气克制、却能把心口按住的小说，从这一本开始就够了。
+        </div>
+        <div class="foot reveal">今日荐读 · 第 2 本</div>
+      </div>
+    </section>
+
+    <div class="edge left" data-dir="-1" title="上一屏"></div>
+    <div class="edge right" data-dir="1" title="下一屏"></div>
+
+    <nav class="nav" aria-label="分页">
+      <button type="button" aria-label="封面" aria-current="true" data-go="0"><i class="ring"></i><i class="dot"></i></button>
+      <button type="button" aria-label="简介" data-go="1"><i class="ring"></i><i class="dot"></i></button>
+      <button type="button" aria-label="荐读" data-go="2"><i class="ring"></i><i class="dot"></i></button>
+    </nav>
+  </div>
+
+  <script>
+    const device = document.getElementById("device");
+    const panels = [...device.querySelectorAll(".panel")];
+    const dots = [...device.querySelectorAll(".nav button")];
+    const DWELL = 6500;
+    let page = 0;
+    let timer = null;
+    let paused = false;
+
+    function beijingParts() {
+      const fmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Shanghai",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]));
+      return `${parts.hour}:${parts.minute}`;
+    }
+
+    function paintClocks() {
+      const hm = beijingParts();
+      document.querySelectorAll("[data-clock]").forEach((el) => {
+        el.textContent = hm;
+      });
+    }
+
+    function scheduleMinuteTick() {
+      paintClocks();
+      const now = new Date();
+      const ms = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(() => {
+        paintClocks();
+        setInterval(paintClocks, 60 * 1000);
+      }, Math.max(200, ms));
+    }
+
+    function go(next, { restart = true } = {}) {
+      const n = ((next % panels.length) + panels.length) % panels.length;
+      if (n === page) {
+        if (restart) armTimer();
+        return;
+      }
+      const prev = panels[page];
+      prev.classList.remove("is-active");
+      prev.classList.add("is-leave");
+      prev.setAttribute("aria-hidden", "true");
+      setTimeout(() => prev.classList.remove("is-leave"), 800);
+
+      page = n;
+      device.dataset.page = String(page);
+      const cur = panels[page];
+      cur.classList.add("is-active");
+      cur.setAttribute("aria-hidden", "false");
+
+      dots.forEach((b, i) => {
+        b.setAttribute("aria-current", i === page ? "true" : "false");
+        // restart ring by reflow
+        const ring = b.querySelector(".ring");
+        ring.style.animation = "none";
+        void ring.offsetWidth;
+        ring.style.animation = "";
+      });
+
+      if (restart) armTimer();
+    }
+
+    function armTimer() {
+      clearTimeout(timer);
+      if (paused) return;
+      timer = setTimeout(() => go(page + 1), DWELL);
+    }
+
+    function setPaused(v) {
+      paused = v;
+      device.classList.toggle("is-paused", paused);
+      if (paused) clearTimeout(timer);
+      else armTimer();
+    }
+
+    dots.forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      go(Number(b.dataset.go));
+    }));
+    device.querySelectorAll(".edge").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        go(page + Number(el.dataset.dir));
+      });
+    });
+
+    device.addEventListener("mouseenter", () => setPaused(true));
+    device.addEventListener("mouseleave", () => setPaused(false));
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") go(page + 1);
+      if (e.key === "ArrowLeft") go(page - 1);
+    });
+
+    // swipe
+    let x0 = null;
+    device.addEventListener("pointerdown", (e) => { x0 = e.clientX; });
+    device.addEventListener("pointerup", (e) => {
+      if (x0 == null) return;
+      const dx = e.clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) < 48) return;
+      go(page + (dx < 0 ? 1 : -1));
+    });
+
+    scheduleMinuteTick();
+    armTimer();
+  </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "playlist_size": 5,
+  "daily_hour": 7,
+  "timezone": "Asia/Shanghai",
+  "history_days": 7,
+  "note": "偏好由 Actions 读取；改完点「保存到仓库」或提交本文件后下次生成生效。"
+}

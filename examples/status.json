@@ -1,0 +1,65 @@
+{
+  "updated_at": "2026-11-25 15:48:46",
+  "items": [
+    {
+      "bot": "主脑",
+      "status": "hold",
+      "task": "等音线开闸",
+      "note": "旁路观察示例"
+    },
+    {
+      "bot": "书枢",
+      "status": "done",
+      "task": "书线 QA PASS",
+      "note": ""
+    },
+    {
+      "bot": "剧枢",
+      "status": "done",
+      "task": "影线 QA PASS",
+      "note": ""
+    },
+    {
+      "bot": "卷枢",
+      "status": "hold",
+      "task": "",
+      "note": ""
+    },
+    {
+      "bot": "机枢",
+      "status": "run",
+      "task": "核对接线表",
+      "note": ""
+    },
+    {
+      "bot": "膳枢",
+      "status": "hold",
+      "task": "",
+      "note": ""
+    },
+    {
+      "bot": "旅伴",
+      "status": "hold",
+      "task": "",
+      "note": ""
+    },
+    {
+      "bot": "票匣",
+      "status": "error",
+      "task": "票源超时",
+      "note": ""
+    },
+    {
+      "bot": "零工",
+      "status": "run",
+      "task": "整理交付包",
+      "note": ""
+    },
+    {
+      "bot": "蜡笔",
+      "status": "hold",
+      "task": "",
+      "note": ""
+    }
+  ]
+}

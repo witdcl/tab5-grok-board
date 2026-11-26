@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tab5 荐书板 · 创意预览</title>
+  <!-- 设备是 efontCN 点阵黑体：网页用 Noto Sans SC 近似，覆盖全汉字，避免晓伟等展示体缺字出框 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      /* 色阶按设备可画：纯色 fill + 少量色块，无模糊/多层阴影 */
+      --ink: #14110f;
+      --ink-deep: #0c0b0a;
+      --paper: #efe4d0;
+      --paper-soft: #e6d8c2;
+      --paper-warm: #f3ebe0;
+      --brass: #c4a15a;
+      --brass-dim: #8a7040;
+      --muted: #9a9082;
+      --muted-2: #7a7164;
+      --text: #1f1a14;
+      --body: #4a4136;
+      --body-soft: #6a6156;
+      --hair: rgba(196, 161, 90, 0.35);
+      --dwell: 7000ms;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 70% 45% at 50% -8%, #2e261c 0%, transparent 55%),
+        #070605;
+      color: var(--paper);
+      font-family: var(--font);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 16px 56px;
+      user-select: none;
+    }
+    h1 {
+      margin: 6px 0 0;
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.4em;
+      color: var(--muted);
+    }
+    .hint {
+      margin: 0;
+      font-size: 11px;
+      color: #5a5348;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1.7;
+      max-width: 56em;
+    }
+    .hint kbd {
+      font-family: inherit;
+      border: 1px solid #3a342c;
+      padding: 1px 6px;
+      color: var(--muted);
+    }
+
+    .mode-bar {
+      display: flex;
+      gap: 0;
+      border: 1px solid #3a342c;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .mode-bar button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: #7a7164;
+      font-family: var(--font);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      padding: 10px 22px;
+      cursor: pointer;
+      transition: background .35s var(--ease), color .35s var(--ease);
+    }
+    .mode-bar button[aria-pressed="true"] {
+      background: #1c1814;
+      color: var(--brass);
+    }
+
+    .note {
+      font-size: 11px;
+      color: #6e6558;
+      letter-spacing: 0.08em;
+      text-align: center;
+      min-height: 1.4em;
+      margin: 0;
+      line-height: 1.6;
+      max-width: 56em;
+    }
+
+    .device {
+      width: min(1040px, 100%);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #2e2922;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.05) inset,
+        0 50px 120px rgba(0,0,0,.7);
+      cursor: grab;
+      touch-action: pan-y;
+    }
+    .device:active { cursor: grabbing; }
+    .device::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.05;
+      z-index: 20;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .status {
+      position: absolute;
+      top: 18px; left: 28px; right: 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 30;
+    }
+    .status .wifi {
+      width: 18px; height: 18px;
+      transition: color .6s var(--ease), opacity .6s var(--ease);
+    }
+    .device:not([data-page="2"]) .status .wifi { color: var(--muted); opacity: 0.9; }
+    .device[data-page="2"] .status .wifi { color: #7a7164; opacity: 0.85; }
+    .status .clock {
+      font-weight: 500;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.2em;
+      transition: color .6s var(--ease);
+    }
+    .device:not([data-page="2"]) .status .clock { color: var(--paper); }
+    .device[data-page="2"] .status .clock { color: var(--text); }
+
+    .deck { position: absolute; inset: 0; }
+    .deck[hidden] { display: none !important; }
+
+    .panel {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(28px) scale(0.985);
+      transition:
+        opacity .75s var(--ease),
+        transform .85s var(--ease),
+        visibility 0s linear .75s;
+      z-index: 1;
+    }
+    .panel.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+      transition:
+        opacity .75s var(--ease),
+        transform .85s var(--ease),
+        visibility 0s linear 0s;
+      z-index: 2;
+    }
+    .panel.is-leave {
+      opacity: 0;
+      visibility: visible;
+      transform: translateX(-22px) scale(0.99);
+      z-index: 1;
+    }
+    .panel .reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity .7s var(--ease), transform .7s var(--ease);
+    }
+    .panel.is-active .reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .panel.is-active .reveal:nth-child(1) { transition-delay: .08s; }
+    .panel.is-active .reveal:nth-child(2) { transition-delay: .18s; }
+    .panel.is-active .reveal:nth-child(3) { transition-delay: .28s; }
+    .panel.is-active .reveal:nth-child(4) { transition-delay: .38s; }
+    .panel.is-active .reveal:nth-child(5) { transition-delay: .48s; }
+
+    /* ========== 现行 ========== */
+    #cur-p0 {
+      background:
+        radial-gradient(ellipse at 18% 35%, rgba(196,161,90,.07), transparent 45%),
+        radial-gradient(ellipse at 85% 75%, rgba(70,50,25,.22), transparent 50%),
+        var(--ink);
+    }
+    #cur-p0 .stage {
+      position: absolute;
+      left: 5%; top: 14%; bottom: 14%;
+      width: 30%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #cur-p0 .cover {
+      height: 100%;
+      aspect-ratio: 2 / 3;
+      max-width: 100%;
+      border: 1px solid #4a3d2c;
+      box-shadow: 12px 18px 50px rgba(0,0,0,.55);
+      overflow: hidden;
+      background: #1a1510;
+    }
+    #cur-p0 .cover img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      background: #1a1510;
+    }
+    #cur-p0 .v-rule {
+      position: absolute; left: 40%; top: 18%; bottom: 18%;
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--hair), transparent);
+      transform: scaleY(0);
+      transform-origin: center top;
+      transition: transform .9s var(--ease) .15s;
+    }
+    #cur-p0.is-active .v-rule { transform: scaleY(1); }
+    #cur-p0 .quote {
+      position: absolute; left: 46%; right: 7%; top: 28%;
+      color: var(--paper);
+    }
+    #cur-p0 .quote .tag {
+      font-size: 11px; letter-spacing: 0.42em; color: var(--brass); margin-bottom: 22px;
+    }
+    #cur-p0 .quote blockquote {
+      margin: 0; padding: 0 0 0 20px; border: 0;
+      border-left: 2px solid var(--brass);
+      font-size: clamp(20px, 2.35vw, 28px); line-height: 1.7; font-weight: 500;
+    }
+    #cur-p0 .quote .src {
+      margin-top: 28px; padding-left: 20px;
+      color: var(--muted); font-size: 11px; letter-spacing: 0.18em;
+    }
+    #cur-p0 .slot {
+      position: absolute; left: 46%; bottom: 58px;
+      font-size: 10px; letter-spacing: 0.28em; color: #5c564c;
+    }
+
+    #cur-p1 {
+      background:
+        radial-gradient(ellipse at 70% 20%, rgba(196,161,90,.05), transparent 40%),
+        var(--ink);
+    }
+    #cur-p1 .sheet {
+      position: absolute; left: 5%; right: 5%; top: 14%; bottom: 13%;
+      background: linear-gradient(180deg, var(--paper) 0%, var(--paper-soft) 100%);
+      color: var(--text);
+      padding: 42px 52px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      display: flex; flex-direction: column;
+    }
+    #cur-p1 .sheet::before {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--brass), transparent);
+      opacity: 0.7;
+      transform: scaleX(0);
+      transition: transform .8s var(--ease) .2s;
+    }
+    #cur-p1.is-active .sheet::before { transform: scaleX(1); }
+    #cur-p1 .head {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+    }
+    #cur-p1 .head h2 {
+      margin: 0; font-size: clamp(26px, 3vw, 38px);
+      letter-spacing: 0.08em; font-weight: 500;
+      line-height: 1.35;
+    }
+    #cur-p1 .head .author {
+      font-size: 13px; letter-spacing: 0.16em; color: #6e6558;
+      padding-bottom: 8px; white-space: nowrap; flex-shrink: 0;
+    }
+    #cur-p1 .facts {
+      display: flex; flex-wrap: wrap; gap: 10px 18px;
+      margin: 16px 0 22px;
+      font-size: 11px; letter-spacing: 0.14em; color: #7a7164;
+    }
+    #cur-p1 .facts span {
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    #cur-p1 .facts span::before {
+      content: "";
+      width: 4px; height: 4px; border-radius: 50%; background: var(--brass);
+    }
+    #cur-p1 .divider {
+      width: 48px; height: 1px; background: var(--brass); margin-bottom: 20px; opacity: 0.65;
+    }
+    #cur-p1 .body {
+      font-size: clamp(15px, 1.65vw, 18px); line-height: 1.95; color: #3d352b;
+      max-width: 42em; text-align: justify;
+    }
+
+    #cur-p2 {
+      background: linear-gradient(165deg, #f3ebdc 0%, #e9dcc7 55%, #e2d4bc 100%);
+      color: var(--text);
+    }
+    #cur-p2 .glow {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 20%, rgba(196,161,90,.1), transparent 40%),
+        radial-gradient(ellipse at 90% 85%, rgba(60,40,20,.07), transparent 45%);
+      pointer-events: none;
+    }
+    #cur-p2 .content {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 10% 11% 11%;
+    }
+    #cur-p2 .corner {
+      position: absolute; width: 28px; height: 28px;
+      border-color: var(--brass); border-style: solid; opacity: 0.45;
+    }
+    #cur-p2 .corner.tl { top: 72px; left: 48px; border-width: 1px 0 0 1px; }
+    #cur-p2 .corner.br { bottom: 56px; right: 48px; border-width: 0 1px 1px 0; }
+    #cur-p2 .kicker {
+      font-size: 12px; letter-spacing: 0.5em; color: var(--brass-dim);
+      margin-bottom: 16px;
+    }
+    #cur-p2 .rule {
+      width: 56px; height: 2px; background: var(--brass); margin-bottom: 24px; opacity: 0.85;
+      transform: scaleX(0); transform-origin: left center;
+      transition: transform .7s var(--ease) .25s;
+    }
+    #cur-p2.is-active .rule { transform: scaleX(1); }
+    #cur-p2 .about {
+      margin: 0 0 8px;
+      font-size: clamp(16px, 1.8vw, 20px);
+      letter-spacing: 0.36em; font-weight: 500; color: #6e6558;
+    }
+    #cur-p2 .book-line {
+      margin: 0 0 26px;
+      font-size: clamp(22px, 2.8vw, 34px);
+      letter-spacing: 0.08em; font-weight: 500;
+      line-height: 1.35;
+    }
+    #cur-p2 .body {
+      max-width: 36em;
+      font-size: clamp(15px, 1.75vw, 19px);
+      line-height: 2; color: #3a3228; text-align: justify;
+    }
+    #cur-p2 .foot {
+      margin-top: 34px;
+      font-size: 11px; letter-spacing: 0.36em; color: var(--brass-dim);
+    }
+
+    /*
+      提案视觉（设备侧对应）：
+      - 背景：fillScreen 一色 + 纸面 fillRect 一色（不做径向光斑）
+      - 强调：setTextColor 换 2～3 档（亮字 / 正文 / 弱字）+ 黄铜短线
+      - 不做：模糊、大阴影、粒子、多图叠层
+    */
+
+    /* P0 封面完整 + 金句重点色 */
+    #new-p0 {
+      background: var(--ink-deep);
+    }
+    #new-p0 .band {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 42%;
+      background: var(--ink);
+      pointer-events: none;
+    }
+    #new-p0 .layout {
+      position: absolute;
+      inset: 11% 6% 13% 5%;
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.4fr);
+      gap: 5%;
+      align-items: center;
+    }
+    #new-p0 .cover-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+    #new-p0 .cover {
+      height: 100%;
+      aspect-ratio: 2 / 3;
+      max-width: 100%;
+      border: 1px solid #6a5740;
+      box-shadow: 10px 14px 36px rgba(0,0,0,.45); /* 预览用；真机可改单色描边 */
+      background: #1a1510;
+      overflow: hidden;
+    }
+    #new-p0 .cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      background: #1a1510;
+    }
+    #new-p0 .copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      padding: 0 1% 0 0;
+    }
+    #new-p0 .copy .tag {
+      font-size: 11px; letter-spacing: 0.42em;
+      color: var(--brass);
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+    #new-p0 .copy blockquote {
+      margin: 0;
+      padding: 0 0 0 18px;
+      border-left: 2px solid var(--brass);
+      font-size: clamp(20px, 2.25vw, 27px);
+      line-height: 1.72;
+      font-weight: 400;
+      color: #8f8678; /* 弱：句内其余字 */
+    }
+    #new-p0 .copy blockquote .hit {
+      color: #f2e6d4; /* 强：句内重点，明显更亮 */
+      font-weight: 400; /* 靠颜色区分，不靠加粗 */
+    }
+    #new-p0 .copy .meta {
+      margin-top: 24px;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+    }
+    #new-p0 .copy .why {
+      color: var(--brass);
+      letter-spacing: 0.22em;
+      font-weight: 500;
+    }
+    #new-p0 .copy .src {
+      color: #7a7164;
+    }
+    #new-p0 .hair {
+      width: 36px; height: 2px; background: var(--brass);
+      margin: 20px 0 0 18px;
+      transform: scaleX(0); transform-origin: left;
+      transition: transform .75s var(--ease) .3s;
+    }
+    #new-p0.is-active .hair { transform: scaleX(1); }
+
+    /* P1 刊头 + 题眼：纸面纯色，元信息弱、题眼强、正文中 */
+    #new-p1 {
+      background: var(--ink-deep);
+    }
+    #new-p1 .sheet {
+      position: absolute; left: 5%; right: 5%; top: 12%; bottom: 11%;
+      background: var(--paper-warm);
+      color: var(--text);
+      padding: 34px 52px 36px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.28);
+      display: flex; flex-direction: column;
+    }
+    #new-p1 .sheet::before {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--brass);
+      opacity: 0.85;
+      transform: scaleX(0);
+      transition: transform .8s var(--ease) .2s;
+    }
+    #new-p1.is-active .sheet::before { transform: scaleX(1); }
+    #new-p1 .mast {
+      font-size: 11px; letter-spacing: 0.2em; color: var(--muted-2);
+      display: flex; flex-wrap: wrap; gap: 8px 14px;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(138, 112, 64, 0.22);
+    }
+    #new-p1 .mast .sep { color: #c4b8a4; }
+    #new-p1 .mast .score {
+      color: var(--brass-dim);
+      font-weight: 500;
+    }
+    #new-p1 .mast .author {
+      color: var(--text);
+      font-weight: 500;
+      margin-left: auto;
+      letter-spacing: 0.28em;
+    }
+    #new-p1 .eye {
+      margin: 26px 0 14px;
+      font-size: clamp(34px, 4.2vw, 50px);
+      letter-spacing: 0.28em;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.15;
+    }
+    #new-p1 .eye span {
+      display: inline-block;
+      box-shadow: inset 0 -3px 0 var(--brass);
+      padding-bottom: 2px;
+    }
+    #new-p1 .lede {
+      margin: 0 0 14px;
+      font-size: clamp(15px, 1.65vw, 17px);
+      line-height: 1.75;
+      color: var(--brass-dim);
+      letter-spacing: 0.06em;
+      font-weight: 400;
+      max-width: 36em;
+    }
+    #new-p1 .body {
+      font-size: clamp(15px, 1.65vw, 17px);
+      line-height: 1.95;
+      color: var(--body-soft);
+      max-width: 40em;
+      text-align: justify;
+    }
+    #new-p1 .body .hit {
+      color: var(--brass-dim); /* 句内重点：黄铜，一眼可辨 */
+      font-weight: 400;
+    }
+    #new-p1 .title-ghost {
+      margin-top: auto;
+      padding-top: 22px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    /* P2 手札：问句加重，说明句回落 */
+    #new-p2 {
+      background: var(--paper-soft);
+    }
+    #new-p2 .wash {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, var(--paper-warm) 0%, var(--paper-soft) 55%, #ddd0ba 100%);
+      pointer-events: none;
+    }
+    #new-p2 .pad {
+      position: absolute;
+      left: 11%; right: 13%;
+      top: 50%;
+      transform: translateY(-50%);
+      max-width: 34em;
+    }
+    #new-p2 .mark {
+      position: absolute;
+      right: 8%;
+      top: 14%;
+      font-size: clamp(64px, 8vw, 96px);
+      line-height: 1;
+      color: rgba(196, 161, 90, 0.16);
+      letter-spacing: 0.08em;
+      font-weight: 500;
+      pointer-events: none;
+      user-select: none;
+    }
+    #new-p2 .voice {
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      color: var(--brass-dim);
+      margin-bottom: 18px;
+      font-weight: 500;
+    }
+    #new-p2 .body {
+      font-size: clamp(17px, 1.95vw, 21px);
+      line-height: 2.05;
+      text-align: justify;
+    }
+    #new-p2 .body .lead {
+      display: block;
+      color: var(--text);
+      font-weight: 400;
+      margin-bottom: 0.55em;
+    }
+    #new-p2 .body .lead .hit {
+      color: var(--brass-dim); /* 问句里的题眼用色，不加粗 */
+    }
+    #new-p2 .body .rest {
+      color: var(--body-soft);
+      font-weight: 400;
+    }
+    #new-p2 .body .rest .hit {
+      color: var(--text);
+    }
+    #new-p2 .rule {
+      width: 40px; height: 2px;
+      background: var(--brass);
+      margin: 26px 0 16px;
+      transform: scaleX(0); transform-origin: left;
+      transition: transform .7s var(--ease) .3s;
+    }
+    #new-p2.is-active .rule { transform: scaleX(1); }
+    #new-p2 .foot {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--muted-2);
+      line-height: 1.75;
+    }
+    #new-p2 .foot .why {
+      color: var(--brass-dim);
+      letter-spacing: 0.22em;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    /* Nav */
+    .nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 18px;
+      display: flex; justify-content: center; align-items: center;
+      gap: 14px;
+      z-index: 30;
+    }
+    .nav button {
+      appearance: none; border: 0; background: transparent; padding: 10px 4px;
+      cursor: pointer; position: relative;
+    }
+    .nav button .dot {
+      display: block; width: 7px; height: 7px; border-radius: 50%;
+      background: #4a433a;
+      transition: transform .35s var(--ease), background .35s var(--ease);
+    }
+    .device[data-page="2"] .nav button .dot { background: #cbbca3; }
+    .nav button[aria-current="true"] .dot {
+      background: var(--brass);
+      transform: scale(1.35);
+    }
+    .device[data-page="2"] .nav button[aria-current="true"] .dot {
+      background: var(--brass-dim);
+    }
+    .nav button .ring {
+      position: absolute; left: 50%; top: 50%;
+      width: 18px; height: 18px; margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      background: conic-gradient(var(--brass) var(--p, 0%), transparent 0);
+      opacity: 0;
+      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+    }
+    .nav button[aria-current="true"] .ring {
+      opacity: 0.9;
+      animation: ringFill var(--dwell) linear forwards;
+    }
+    .device.is-paused .nav button[aria-current="true"] .ring {
+      animation-play-state: paused;
+    }
+    .edge {
+      position: absolute; top: 0; bottom: 0; width: 18%;
+      z-index: 25; cursor: pointer;
+    }
+    .edge.left { left: 0; }
+    .edge.right { right: 0; }
+
+    @keyframes ringFill {
+      from { --p: 0%; }
+      to { --p: 100%; }
+    }
+    @property --p {
+      syntax: "<percentage>";
+      inherits: false;
+      initial-value: 0%;
+    }
+  </style>
+</head>
+<body>
+  <h1>TAB5 · 创意预览</h1>
+  <p class="hint">
+    16:9 横屏仿真 · 字体用 Noto Sans SC 近似设备 efontCN（不再用缺字展示体）·
+    文案已避开 efont 没有的破折号等 · 点击左右 / <kbd>←</kbd><kbd>→</kbd> · <kbd>1</kbd>/<kbd>2</kbd> 切方案
+  </p>
+
+  <div class="mode-bar" role="group" aria-label="方案">
+    <button type="button" id="btn-cur" aria-pressed="false">现行</button>
+    <button type="button" id="btn-new" aria-pressed="true">提案</button>
+  </div>
+  <p class="note" id="mode-note">提案：封面完整 contain · 刊头题眼 · 手札荐读 ·「今日为何」</p>
+
+  <div class="device" id="device" data-page="0" data-mode="new">
+    <div class="status">
+      <svg class="wifi" viewBox="0 0 24 24" aria-label="Wi-Fi" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12.5c4-4 10-4 14 0" />
+        <path d="M8.2 15.5c2.3-2.2 5.3-2.2 7.6 0" />
+        <circle cx="12" cy="18.2" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M2.5 9.2c6-5.6 13-5.6 19 0" opacity=".55" />
+      </svg>
+      <span class="clock" data-clock>--:--</span>
+    </div>
+
+    <div class="deck" id="deck-cur" hidden>
+      <section class="panel is-active" id="cur-p0" data-index="0" aria-hidden="false">
+        <div class="v-rule"></div>
+        <div class="stage reveal">
+          <div class="cover">
+            <img
+              src="https://cdn.weread.qq.com/weread/cover/88/cpPlatform_3300003969/t7_cpPlatform_3300003969.jpg"
+              alt="重走封面"
+              referrerpolicy="no-referrer"
+            />
+          </div>
+        </div>
+        <div class="quote reveal">
+          <div class="tag">金句</div>
+          <blockquote>乱世读书是中国知识分子几乎发乎本能的世界观，更是他们解决内心危机的方法论。</blockquote>
+          <div class="src">热门划线</div>
+        </div>
+        <div class="slot reveal">今日荐读 · 第 2 本</div>
+      </section>
+
+      <section class="panel" id="cur-p1" data-index="1" aria-hidden="true">
+        <div class="sheet">
+          <div class="head reveal">
+            <h2>重走：在公路、河流和驿道上寻找西南联大</h2>
+            <div class="author">杨潇</div>
+          </div>
+          <div class="facts reveal">
+            <span>非虚构</span>
+            <span>评分 89.1</span>
+            <span>1943 人评</span>
+          </div>
+          <div class="divider reveal"></div>
+          <div class="body reveal">
+            这是单读出版推出的首部长篇非虚构作品，一个青年写作者徒步重走西南联大西迁路的故事。1938年，湘黔滇旅行团徒步跨越三省穿过西南腹地；2018年，处于人生转折点的青年作者杨潇重新踏上这条长路。现实中非典型的公路徒步与历史上知识人的流亡之旅交织、对话、共振，层累的、不同的中国缓缓浮现。
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="cur-p2" data-index="2" aria-hidden="true">
+        <div class="glow"></div>
+        <div class="corner tl"></div>
+        <div class="corner br"></div>
+        <div class="content">
+          <div class="kicker reveal">荐读</div>
+          <div class="rule"></div>
+          <div class="about reveal">关于这本书</div>
+          <div class="book-line reveal">重走：在公路、河流和驿道上寻找西南联大</div>
+          <div class="body reveal">
+            杨潇沿着八十年前湘黔滇旅行团走过的路，从长沙步行入滇，在公路河流与旧道间辨认西南联大的迁校足迹。现实见闻与档案日记彼此映照，让流亡中的读书声、沿途风土和今日行旅慢慢叠合。读来像一场缓慢而扎实的寻访，既见历史细节，也见一个青年在转折处对思想与行动的追问。
+          </div>
+          <div class="foot reveal">今日荐读 · 第 2 本</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="deck" id="deck-new">
+      <section class="panel is-active" id="new-p0" data-index="0" aria-hidden="false">
+        <div class="band" aria-hidden="true"></div>
+        <div class="layout">
+          <div class="cover-wrap reveal">
+            <div class="cover">
+              <img
+                src="https://cdn.weread.qq.com/weread/cover/88/cpPlatform_3300003969/t7_cpPlatform_3300003969.jpg"
+                alt="重走封面"
+                referrerpolicy="no-referrer"
+              />
+            </div>
+          </div>
+          <div class="copy reveal">
+            <div class="tag">金句</div>
+            <blockquote>
+              <span class="hit">乱世读书</span>是中国知识分子几乎发乎本能的世界观，更是他们<span class="hit">解决内心危机</span>的方法论。
+            </blockquote>
+            <div class="meta">
+              <span class="why">续联大线 · 非虚构</span>
+              <span class="src">热门划线</span>
+            </div>
+            <div class="hair"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="new-p1" data-index="1" aria-hidden="true">
+        <div class="sheet">
+          <div class="mast reveal">
+            <span>非虚构</span>
+            <span class="sep">·</span>
+            <span class="score">评分 89.1</span>
+            <span class="sep">·</span>
+            <span>1943 人评</span>
+            <span class="author">杨潇</span>
+          </div>
+          <div class="eye reveal"><span>乱世读书</span></div>
+          <div class="lede reveal">徒步重走西迁路，让档案里的联大重新落地。</div>
+          <div class="body reveal">
+            一九三八年，湘黔滇旅行团徒步入滇；八十年后，杨潇重走这条路。公路、河流与旧驿道上，档案与见闻彼此叠合。
+            <span class="hit">这不是导游式的重访，而是带着问题意识的长途寻踪。</span>
+          </div>
+          <div class="title-ghost reveal">重走：在公路、河流和驿道上寻找西南联大</div>
+        </div>
+      </section>
+
+      <section class="panel" id="new-p2" data-index="2" aria-hidden="true">
+        <div class="wash" aria-hidden="true"></div>
+        <div class="mark" aria-hidden="true">荐</div>
+        <div class="pad">
+          <div class="voice reveal">语气 · 一问</div>
+          <div class="body reveal">
+            <span class="lead">如果思想必须<span class="hit">上路</span>才能成立，今天的我们还肯走多远？</span>
+            <span class="rest">杨潇把档案里的迁校足迹，写成脚底板能核对的路程――读完后，联大不再只是校名，而变成<span class="hit">一条还能走的路</span>。</span>
+          </div>
+          <div class="rule"></div>
+          <div class="foot reveal">
+            <div class="why">续联大线 · 非虚构</div>
+            <div>杨潇 · 重走</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="edge left" data-dir="-1" title="上一屏"></div>
+    <div class="edge right" data-dir="1" title="下一屏"></div>
+
+    <nav class="nav" aria-label="分页">
+      <button type="button" aria-label="封面" aria-current="true" data-go="0"><i class="ring"></i><i class="dot"></i></button>
+      <button type="button" aria-label="简介" data-go="1"><i class="ring"></i><i class="dot"></i></button>
+      <button type="button" aria-label="荐读" data-go="2"><i class="ring"></i><i class="dot"></i></button>
+    </nav>
+  </div>
+
+  <script>
+    const device = document.getElementById("device");
+    const deckCur = document.getElementById("deck-cur");
+    const deckNew = document.getElementById("deck-new");
+    const btnCur = document.getElementById("btn-cur");
+    const btnNew = document.getElementById("btn-new");
+    const modeNote = document.getElementById("mode-note");
+    const dots = [...device.querySelectorAll(".nav button")];
+    const DWELL = 7000;
+    let mode = "new";
+    let page = 0;
+    let timer = null;
+    let paused = false;
+
+    const NOTES = {
+      cur: "现行：完整竖版封面 + 分栏金句 · 书名主导简介 · 分层荐读",
+      new: "提案：字色分层（重点亮 / 正文中 / 元信息弱）· 纸面纯色 · 封面完整 · 设备可画",
+    };
+
+    function panels() {
+      const deck = mode === "new" ? deckNew : deckCur;
+      return [...deck.querySelectorAll(".panel")];
+    }
+
+    function beijingParts() {
+      const fmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Shanghai",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]));
+      return `${parts.hour}:${parts.minute}`;
+    }
+
+    function paintClocks() {
+      const hm = beijingParts();
+      document.querySelectorAll("[data-clock]").forEach((el) => {
+        el.textContent = hm;
+      });
+    }
+
+    function scheduleMinuteTick() {
+      paintClocks();
+      const now = new Date();
+      const ms = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(() => {
+        paintClocks();
+        setInterval(paintClocks, 60 * 1000);
+      }, Math.max(200, ms));
+    }
+
+    function resetPanelState() {
+      panels().forEach((p, i) => {
+        p.classList.toggle("is-active", i === page);
+        p.classList.remove("is-leave");
+        p.setAttribute("aria-hidden", i === page ? "false" : "true");
+      });
+      device.dataset.page = String(page);
+      dots.forEach((b, i) => {
+        b.setAttribute("aria-current", i === page ? "true" : "false");
+        const ring = b.querySelector(".ring");
+        ring.style.animation = "none";
+        void ring.offsetWidth;
+        ring.style.animation = "";
+      });
+    }
+
+    function setMode(next) {
+      mode = next;
+      device.dataset.mode = mode;
+      deckCur.hidden = mode !== "cur";
+      deckNew.hidden = mode !== "new";
+      btnCur.setAttribute("aria-pressed", mode === "cur" ? "true" : "false");
+      btnNew.setAttribute("aria-pressed", mode === "new" ? "true" : "false");
+      modeNote.textContent = NOTES[mode];
+      page = 0;
+      resetPanelState();
+      armTimer();
+    }
+
+    function go(next, { restart = true } = {}) {
+      const list = panels();
+      const n = ((next % list.length) + list.length) % list.length;
+      if (n === page) {
+        if (restart) armTimer();
+        return;
+      }
+      const prev = list[page];
+      prev.classList.remove("is-active");
+      prev.classList.add("is-leave");
+      prev.setAttribute("aria-hidden", "true");
+      setTimeout(() => prev.classList.remove("is-leave"), 800);
+
+      page = n;
+      device.dataset.page = String(page);
+      const cur = list[page];
+      cur.classList.add("is-active");
+      cur.setAttribute("aria-hidden", "false");
+
+      dots.forEach((b, i) => {
+        b.setAttribute("aria-current", i === page ? "true" : "false");
+        const ring = b.querySelector(".ring");
+        ring.style.animation = "none";
+        void ring.offsetWidth;
+        ring.style.animation = "";
+      });
+
+      if (restart) armTimer();
+    }
+
+    function armTimer() {
+      clearTimeout(timer);
+      if (paused) return;
+      timer = setTimeout(() => go(page + 1), DWELL);
+    }
+
+    function setPaused(v) {
+      paused = v;
+      device.classList.toggle("is-paused", paused);
+      if (paused) clearTimeout(timer);
+      else armTimer();
+    }
+
+    btnCur.addEventListener("click", () => setMode("cur"));
+    btnNew.addEventListener("click", () => setMode("new"));
+
+    dots.forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      go(Number(b.dataset.go));
+    }));
+    device.querySelectorAll(".edge").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        go(page + Number(el.dataset.dir));
+      });
+    });
+
+    device.addEventListener("mouseenter", () => setPaused(true));
+    device.addEventListener("mouseleave", () => setPaused(false));
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") go(page + 1);
+      if (e.key === "ArrowLeft") go(page - 1);
+      if (e.key === "1") setMode("cur");
+      if (e.key === "2") setMode("new");
+    });
+
+    let x0 = null;
+    device.addEventListener("pointerdown", (e) => { x0 = e.clientX; });
+    device.addEventListener("pointerup", (e) => {
+      if (x0 == null) return;
+      const dx = e.clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) < 48) return;
+      go(page + (dx < 0 ? 1 : -1));
+    });
+
+    scheduleMinuteTick();
+    setMode("new");
+  </script>
+</body>
+</html>

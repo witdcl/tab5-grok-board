@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TAB5 · 荐书板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      --ink: #14110f;
+      --ink-deep: #0c0b0a;
+      --paper: #efe4d0;
+      --paper-soft: #e6d8c2;
+      --paper-warm: #f3ebe0;
+      --brass: #c4a15a;
+      --brass-dim: #8a7040;
+      --muted: #9a9082;
+      --muted-2: #7a7164;
+      --text: #1f1a14;
+      --body-soft: #6a6156;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      /* 设备字号：16 / 24 / 32 / 48；预览按 16:9 等比缩放 */
+      --px: clamp(0.55px, 0.092vw, 1px);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 70% 45% at 50% -8%, #2e261c 0%, transparent 55%),
+        #070605;
+      color: var(--paper);
+      font-family: var(--font);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 16px 56px;
+    }
+    .top {
+      width: min(1040px, 100%);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.4em;
+      color: var(--muted);
+    }
+    .links { display: flex; gap: 18px; flex-wrap: wrap; }
+    .links a {
+      color: var(--brass);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+    }
+    .links a:hover { color: #e0c888; }
+    .meta-bar {
+      width: min(1040px, 100%);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: center;
+      color: #6e6558;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+    .meta-bar strong { color: var(--brass); font-weight: 500; }
+    .book-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .book-tabs button {
+      appearance: none;
+      border: 1px solid #3a342c;
+      background: transparent;
+      color: #7a7164;
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .book-tabs button[aria-pressed="true"] {
+      border-color: var(--brass);
+      color: var(--brass);
+      background: #1c1814;
+    }
+    .device {
+      width: min(1040px, 100%);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #2e2922;
+      box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 50px 120px rgba(0,0,0,.7);
+      cursor: grab;
+      touch-action: pan-y;
+      background: var(--ink-deep);
+    }
+    .device:active { cursor: grabbing; }
+    .status {
+      position: absolute;
+      top: 3.2%;
+      left: 4%;
+      right: 4%;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: calc(24 * var(--px));
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+    }
+    .status .wifi { width: 1.1em; height: 1.1em; opacity: .75; }
+    .panel {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .55s var(--ease), transform .55s var(--ease);
+      pointer-events: none;
+    }
+    .panel.is-active {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+      z-index: 1;
+    }
+    /* P0 */
+    #p0 { background: var(--ink-deep); }
+    #p0 .band {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
+      background: var(--ink);
+    }
+    #p0 .layout {
+      position: absolute; inset: 0;
+      display: grid;
+      grid-template-columns: 32% 1fr;
+      gap: 4%;
+      padding: 10% 5% 8%;
+      align-items: center;
+    }
+    #p0 .cover {
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      background: #210410;
+      border: 1px solid #6b4d4d;
+      overflow: hidden;
+    }
+    #p0 .cover img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+      background: #210410;
+    }
+    #p0 .tag {
+      font-size: calc(24 * var(--px));
+      font-weight: 700;
+      color: var(--brass);
+      letter-spacing: 0.28em;
+      margin-bottom: 4%;
+    }
+    #p0 blockquote {
+      margin: 0;
+      padding-left: 14px;
+      border-left: 2px solid var(--brass);
+      font-size: calc(32 * var(--px));
+      line-height: 1.55;
+      font-weight: 400;
+      color: #d8d0c4;
+    }
+    #p0 blockquote .hit { color: #f7f1e8; font-weight: 500; }
+    #p0 .why {
+      margin-top: 8%;
+      font-size: calc(24 * var(--px));
+      font-weight: 700;
+      color: var(--brass);
+    }
+    #p0 .src {
+      margin-top: 2%;
+      font-size: calc(16 * var(--px));
+      font-weight: 700;
+      color: var(--muted-2);
+      letter-spacing: 0.12em;
+    }
+    /* P1 */
+    #p1 { background: var(--ink-deep); }
+    #p1 .sheet {
+      position: absolute;
+      left: 5%; right: 5%; top: 12%; bottom: 10%;
+      background: var(--paper-warm);
+      color: var(--text);
+      padding: 4.5% 5%;
+      border-top: 3px solid var(--brass);
+    }
+    #p1 .mast {
+      display: flex; justify-content: space-between; gap: 12px;
+      font-size: calc(16 * var(--px));
+      font-weight: 700;
+      color: var(--muted-2);
+      letter-spacing: 0.08em;
+      padding-bottom: 2.2%;
+      border-bottom: 1px solid #c6c6c6;
+      margin-bottom: 3%;
+    }
+    #p1 .mast .author { color: var(--text); }
+    #p1 .eye {
+      font-size: calc(32 * var(--px));
+      font-weight: 700;
+      line-height: 1.25;
+      margin: 0 0 2.5%;
+    }
+    #p1 .eye span {
+      box-shadow: inset 0 -3px 0 var(--brass);
+    }
+    #p1 .lede {
+      font-size: calc(24 * var(--px));
+      font-weight: 700;
+      color: var(--brass-dim);
+      line-height: 1.55;
+      margin-bottom: 3%;
+    }
+    #p1 .body {
+      font-size: calc(24 * var(--px));
+      line-height: 1.7;
+      color: var(--body-soft);
+    }
+    #p1 .body .hit { color: var(--brass-dim); }
+    #p1 .foot {
+      position: absolute; left: 5%; bottom: 4%;
+      font-size: calc(16 * var(--px));
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    /* P2 */
+    #p2 { background: var(--paper-soft); color: var(--text); }
+    #p2 .mark {
+      position: absolute;
+      right: 6%; top: 10%;
+      font-size: calc(48 * var(--px));
+      font-weight: 700;
+      color: rgba(196, 161, 90, 0.22);
+      pointer-events: none;
+    }
+    #p2 .pad {
+      position: absolute;
+      left: 11%; right: 11%; top: 18%; bottom: 12%;
+    }
+    #p2 .voice {
+      font-size: calc(24 * var(--px));
+      font-weight: 700;
+      color: var(--brass-dim);
+      letter-spacing: 0.16em;
+      margin-bottom: 4%;
+    }
+    #p2 .lead {
+      display: block;
+      font-size: calc(32 * var(--px));
+      font-weight: 700;
+      line-height: 1.45;
+      margin-bottom: 4%;
+      color: var(--text);
+    }
+    #p2 .lead .hit { color: var(--brass-dim); }
+    #p2 .rest {
+      display: block;
+      font-size: calc(24 * var(--px));
+      line-height: 1.7;
+      color: var(--body-soft);
+    }
+    #p2 .rest .hit { color: var(--text); font-weight: 500; }
+    #p2 .rule {
+      width: 40px; height: 2px; background: var(--brass);
+      margin: 6% 0 3%;
+    }
+    #p2 .p2foot {
+      font-size: calc(16 * var(--px));
+      font-weight: 700;
+      color: var(--brass-dim);
+      letter-spacing: 0.08em;
+      line-height: 1.7;
+    }
+    #p2 .p2foot .sub { color: var(--muted-2); }
+    .nav {
+      position: absolute;
+      left: 50%; bottom: 3.5%;
+      transform: translateX(-50%);
+      display: flex; gap: 14px; z-index: 6;
+    }
+    .nav button {
+      appearance: none; border: 0; background: transparent;
+      width: 14px; height: 14px; padding: 0; cursor: pointer; position: relative;
+    }
+    .nav .dot {
+      position: absolute; inset: 4px; border-radius: 50%;
+      background: #5a5348; display: block;
+    }
+    .nav button[aria-current="true"] .dot { background: var(--brass); }
+    .edge {
+      position: absolute; top: 0; bottom: 0; width: 12%; z-index: 4;
+    }
+    .edge.left { left: 0; }
+    .edge.right { right: 0; }
+    .err {
+      color: #c47a5a;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>TAB5 · 荐书板</h1>
+    <div class="links">
+      <a href="./settings.html">设置</a>
+      <a id="raw-link" href="./weread_day.json">片单 JSON</a>
+    </div>
+  </div>
+  <div class="meta-bar">
+    <span>日期 <strong id="day-date">—</strong></span>
+    <span>更新 <strong id="day-updated">—</strong></span>
+    <span id="load-state">加载中…</span>
+  </div>
+  <div class="book-tabs" id="book-tabs" role="tablist" aria-label="今日片单"></div>
+
+  <div class="device" id="device" data-page="0">
+    <div class="status">
+      <svg class="wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12.5c4-4 10-4 14 0" />
+        <path d="M8.2 15.5c2.3-2.2 5.3-2.2 7.6 0" />
+        <circle cx="12" cy="18.2" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M2.5 9.2c6-5.6 13-5.6 19 0" opacity=".55" />
+      </svg>
+      <span data-clock>--:--</span>
+    </div>
+
+    <section class="panel is-active" id="p0" data-index="0">
+      <div class="band"></div>
+      <div class="layout">
+        <div class="cover"><img id="cover" alt="" referrerpolicy="no-referrer" /></div>
+        <div>
+          <div class="tag">金句</div>
+          <blockquote id="quote"></blockquote>
+          <div class="why" id="why"></div>
+          <div class="src" id="quote-source"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="p1" data-index="1">
+      <div class="sheet">
+        <div class="mast">
+          <span id="mast"></span>
+          <span class="author" id="author"></span>
+        </div>
+        <div class="eye"><span id="eye"></span></div>
+        <div class="lede" id="lede"></div>
+        <div class="body" id="intro"></div>
+        <div class="foot" id="title-foot"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="p2" data-index="2">
+      <div class="mark">荐</div>
+      <div class="pad">
+        <div class="voice" id="voice"></div>
+        <span class="lead" id="lead"></span>
+        <span class="rest" id="recommend"></span>
+        <div class="rule"></div>
+        <div class="p2foot">
+          <div id="why2"></div>
+          <div class="sub" id="foot-author"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="edge left" data-dir="-1"></div>
+    <div class="edge right" data-dir="1"></div>
+    <nav class="nav" aria-label="分页">
+      <button type="button" aria-label="封面" aria-current="true" data-go="0"><i class="dot"></i></button>
+      <button type="button" aria-label="简介" data-go="1"><i class="dot"></i></button>
+      <button type="button" aria-label="荐读" data-go="2"><i class="dot"></i></button>
+    </nav>
+  </div>
+
+  <script>
+    const DWELL = 7000;
+    let day = null;
+    let bookIdx = 0;
+    let page = 0;
+    let timer = null;
+
+    function hitHtml(text, hit) {
+      const raw = text || "";
+      const h = (hit || "").trim();
+      if (!h || !raw.includes(h)) return escapeHtml(raw);
+      return escapeHtml(raw).split(escapeHtml(h)).join(`<span class="hit">${escapeHtml(h)}</span>`);
+    }
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+    function clock() {
+      const fmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]));
+      document.querySelectorAll("[data-clock]").forEach((el) => { el.textContent = `${parts.hour}:${parts.minute}`; });
+    }
+    function setPage(n) {
+      page = (n + 3) % 3;
+      document.querySelectorAll(".panel").forEach((p) => {
+        const on = Number(p.dataset.index) === page;
+        p.classList.toggle("is-active", on);
+      });
+      document.querySelectorAll(".nav button").forEach((b) => {
+        b.setAttribute("aria-current", Number(b.dataset.go) === page ? "true" : "false");
+      });
+      document.getElementById("device").dataset.page = String(page);
+      restart();
+    }
+    function restart() {
+      clearInterval(timer);
+      timer = setInterval(() => setPage(page + 1), DWELL);
+    }
+    function paintBook(b) {
+      if (!b) return;
+      const cover = document.getElementById("cover");
+      cover.src = b.cover || "";
+      cover.alt = b.title || "";
+      document.getElementById("quote").innerHTML = hitHtml(b.quote, b.quote_hit);
+      document.getElementById("why").textContent = b.why || "";
+      document.getElementById("quote-source").textContent = b.quote_source || "";
+      document.getElementById("mast").textContent =
+        `${b.category || "图书"}  ·  评分 ${b.rating || "-"}  ·  ${b.rating_count || ""}`;
+      document.getElementById("author").textContent = b.author || "";
+      document.getElementById("eye").textContent = b.eye || "";
+      document.getElementById("lede").textContent = b.lede || "";
+      document.getElementById("intro").innerHTML = hitHtml(b.intro, b.intro_hit);
+      document.getElementById("title-foot").textContent = b.title || "";
+      document.getElementById("voice").textContent = b.voice || "语气 · 一问";
+      document.getElementById("lead").innerHTML = hitHtml(b.recommend_lead, b.eye);
+      document.getElementById("recommend").innerHTML = hitHtml(b.recommend, b.recommend_hit);
+      document.getElementById("why2").textContent = b.why || "";
+      document.getElementById("foot-author").textContent =
+        [b.author, b.title].filter(Boolean).join(" · ");
+      setPage(0);
+    }
+    function paintTabs() {
+      const tabs = document.getElementById("book-tabs");
+      tabs.innerHTML = "";
+      (day.books || []).forEach((b, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = `${i + 1}. ${(b.title || "").slice(0, 10)}`;
+        btn.setAttribute("aria-pressed", i === bookIdx ? "true" : "false");
+        btn.addEventListener("click", () => {
+          bookIdx = i;
+          paintTabs();
+          paintBook(day.books[bookIdx]);
+        });
+        tabs.appendChild(btn);
+      });
+    }
+    async function loadDay() {
+      const state = document.getElementById("load-state");
+      try {
+        const res = await fetch(`./weread_day.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        day = await res.json();
+        document.getElementById("day-date").textContent = day.date || "—";
+        document.getElementById("day-updated").textContent = day.updated_at || "—";
+        state.textContent = `共 ${day.count || (day.books || []).length} 本`;
+        bookIdx = 0;
+        paintTabs();
+        paintBook((day.books || [])[0]);
+      } catch (e) {
+        state.innerHTML = `<span class="err">加载失败：${escapeHtml(e.message || e)}</span>`;
+      }
+    }
+
+    document.querySelectorAll(".nav button").forEach((b) => {
+      b.addEventListener("click", () => setPage(Number(b.dataset.go)));
+    });
+    document.querySelectorAll(".edge").forEach((e) => {
+      e.addEventListener("click", () => setPage(page + Number(e.dataset.dir)));
+    });
+    let sx = 0;
+    const device = document.getElementById("device");
+    device.addEventListener("pointerdown", (ev) => { sx = ev.clientX; });
+    device.addEventListener("pointerup", (ev) => {
+      const dx = ev.clientX - sx;
+      if (Math.abs(dx) < 48) return;
+      setPage(page + (dx < 0 ? 1 : -1));
+    });
+    clock();
+    setInterval(clock, 15000);
+    loadDay();
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+name: Daily Weread Playlist
+
+on:
+  schedule:
+    # 北京时间 07:00 ≈ UTC 23:00（无夏令时）
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "触发原因"
+        required: false
+        default: "manual"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weread-daily
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate playlist
+        env:
+          WEREAD_API_KEY: ${{ secrets.WEREAD_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_BASE_URL: ${{ secrets.DEEPSEEK_BASE_URL }}
+          DEEPSEEK_MODEL: ${{ secrets.DEEPSEEK_MODEL }}
+        run: |
+          set -euo pipefail
+          test -n "${WEREAD_API_KEY:-}" || { echo "缺少 secret WEREAD_API_KEY"; exit 1; }
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo "缺少 secret DEEPSEEK_API_KEY"; exit 1; }
+          test -n "${DEEPSEEK_BASE_URL:-}" || { echo "缺少 secret DEEPSEEK_BASE_URL"; exit 1; }
+          if [ -z "${DEEPSEEK_MODEL:-}" ]; then
+            export DEEPSEEK_MODEL="deepseek-chat"
+          fi
+          python3 tools/weread_board.py --once
+
+      - name: Commit docs playlist
+        run: |
+          set -euo pipefail
+          git config user.name "weread-board-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/weread_day.json docs/weread_book.json docs/weread_history.json examples/weread_day.json examples/weread_book.json examples/weread_history.json || true
+          if git diff --cached --quiet; then
+            echo "No playlist changes."
+          else
+            git commit -m "chore: daily weread playlist $(date -u +%Y-%m-%d)"
+            git push
+          fi
