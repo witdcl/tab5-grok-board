@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "examples"
 DOCS_DIR = ROOT / "docs"
 SETTINGS_PATH = DOCS_DIR / "settings.json"
+CATEGORIES_PATH = DOCS_DIR / "categories.json"
 OUT = OUT_DIR / "weread_book.json"
 DAY_OUT = OUT_DIR / "weread_day.json"
 HISTORY = OUT_DIR / "weread_history.json"
@@ -66,11 +67,50 @@ def load_settings() -> dict:
 _SETTINGS = load_settings()
 DAILY_HOUR = int(_SETTINGS.get("daily_hour") or 7)
 PLAYLIST_SIZE = max(1, min(5, int(_SETTINGS.get("playlist_size") or 5)))
-# 近期已荐书 ID 去重窗口（与「历史类」题材无关；设置页不暴露）
+# 近期已荐书 ID 去重窗口（设置页不暴露）
 HISTORY_DAYS = max(1, int(_SETTINGS.get("avoid_recent_days") or _SETTINGS.get("history_days") or 7))
 
-# 荐书板只要正经可读之书：挡期刊/童书等非阅读向，以及快阅读包装。
-BLOCKED_CATEGORIES = {
+
+def load_category_catalog() -> dict:
+    if not CATEGORIES_PATH.is_file():
+        return {"categories": [], "default_lanes": [], "default_blacklist": []}
+    try:
+        data = json.loads(CATEGORIES_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {"categories": [], "default_lanes": [], "default_blacklist": []}
+
+
+_CATALOG = load_category_catalog()
+CATEGORY_LIST: list[dict] = [
+    c for c in (_CATALOG.get("categories") or []) if isinstance(c, dict) and c.get("id")
+]
+CATEGORY_BY_ID: dict[str, dict] = {str(c["id"]): c for c in CATEGORY_LIST}
+
+
+def blacklist_ids() -> set[str]:
+    raw = _SETTINGS.get("blacklist")
+    if isinstance(raw, list) and raw:
+        return {str(x) for x in raw}
+    return {str(x) for x in (_CATALOG.get("default_blacklist") or [])}
+
+
+def blacklist_match_words() -> set[str]:
+    words: set[str] = set()
+    for cid in blacklist_ids():
+        cat = CATEGORY_BY_ID.get(cid)
+        if not cat:
+            continue
+        words.add(str(cat.get("label") or ""))
+        for m in cat.get("match") or []:
+            if m:
+                words.add(str(m))
+    words.discard("")
+    return words
+
+
+# 荐书板硬挡：设置黑名单 + 默认童书/漫画/期刊等
+BLOCKED_CATEGORIES = blacklist_match_words() | {
     "期刊杂志",
     "童书",
     "漫画",
@@ -391,62 +431,47 @@ def search_ebooks(keyword: str, count: int = 15) -> list[dict]:
     return out
 
 
-# 每日片单五轨：强制题材分散，历史类整天最多 1 本
-PLAYLIST_LANES = (
-    {
-        "id": "fiction_cn",
-        "label": "中文小说",
-        "family": "fiction",
-        "hint": "中文长篇小说或文学，不要史传纪实、不要人物传记",
-        "seeds": ["当代小说 经典", "余华 小说", "王小波 小说", "张爱玲 小说"],
-    },
-    {
-        "id": "fiction_world",
-        "label": "翻译小说",
-        "family": "world",
-        "hint": "外国文学或翻译小说，可略偏严肃，不要中国史传",
-        "seeds": ["格雷厄姆·格林 小说", "萨拉马戈 小说", "翻译文学 经典", "马尔克斯 小说"],
-    },
-    {
-        "id": "essay",
-        "label": "随笔思想",
-        "family": "essay",
-        "hint": "随笔、思想、文化评论，不要通史、断代史、人物长传",
-        "seeds": ["随笔 经典", "思想 随笔", "文化评论", "木心 文学"],
-    },
-    {
-        "id": "science",
-        "label": "科学社会",
-        "family": "science",
-        "hint": "科学、社会观察、艺术或自然写作，明确避开史传纪实",
-        "seeds": ["科学 非虚构", "自然写作", "社会学 经典", "艺术 史 入门"],
-    },
-    {
-        "id": "history",
-        "label": "史传纪实",
-        "family": "history",
-        "hint": "历史非虚构或人物传记",
-        "seeds": ["历史 非虚构", "人物传记 经典", "微观史"],
-    },
-)
+def _lane_from_category(cat: dict) -> dict:
+    return {
+        "id": cat["id"],
+        "label": cat.get("label") or cat["id"],
+        "family": cat.get("family") or cat["id"],
+        "hint": cat.get("hint") or cat.get("label") or "",
+        "seeds": list(cat.get("seeds") or [cat.get("label") or cat["id"]]),
+        "match": list(cat.get("match") or [cat.get("label") or ""]),
+    }
+
+
+# 由 docs/categories.json 展开；兼容旧代码里的 PLAYLIST_LANES 名称
+PLAYLIST_LANES = tuple(_lane_from_category(c) for c in CATEGORY_LIST if c.get("family") != "blocked")
+
+
+def book_matches_lane(book: dict, lane: dict) -> bool:
+    blob = f"{book.get('category') or ''} {book.get('title') or ''}"
+    words = [w for w in (lane.get("match") or []) if w]
+    if not words:
+        words = [lane.get("label") or ""]
+    return any(w and w in blob for w in words)
 
 
 def book_family(book: dict) -> str:
-    """粗分题材族，用于片单去同质。"""
-    cat = f"{book.get('category') or ''} {book.get('title') or ''}"
-    if any(k in cat for k in ("历史", "传记", "纪实", "史学", "通史", "断代")):
-        return "history"
-    if any(k in cat for k in ("科幻", "科学", "自然", "社会", "艺术", "心理")):
-        return "science"
-    if any(k in cat for k in ("随笔", "散文", "思想", "哲学", "评论")):
-        return "essay"
-    if any(k in cat for k in ("外国", "翻译", "世界文学")):
-        return "world"
-    if any(k in cat for k in ("小说", "文学", "诗歌", "戏剧")):
-        return "fiction"
-    # 作者名启发：洋名分隔点常见于翻译书
+    """映射到 categories.json 的 family；用于赛道过滤。"""
+    blob = f"{book.get('category') or ''} {book.get('title') or ''}"
+    # 先按更长的 match 命中，减少「文学」吞掉「外国文学」
+    scored: list[tuple[int, str]] = []
+    for cat in CATEGORY_LIST:
+        fam = str(cat.get("family") or cat.get("id") or "other")
+        for m in cat.get("match") or []:
+            if m and m in blob:
+                scored.append((len(str(m)), fam))
+        label = cat.get("label") or ""
+        if label and label in blob:
+            scored.append((len(str(label)), fam))
+    if scored:
+        scored.sort(key=lambda x: -x[0])
+        return scored[0][1]
     author = book.get("author") or ""
-    if "·" in author or "." in author or any(ch.isascii() and ch.isalpha() for ch in author):
+    if "·" in author or any(ch.isascii() and ch.isalpha() for ch in author):
         return "world"
     return "other"
 
@@ -1117,56 +1142,100 @@ def build_document(
 
 
 def selected_lanes() -> list[dict]:
-    """settings.lanes 勾选的类型；未配置则用全部。"""
+    """settings.lanes 顺序即权重；排除黑名单；未配置用 default_lanes。"""
+    banned = blacklist_ids()
+    by_id = {ln["id"]: ln for ln in PLAYLIST_LANES}
     wanted = _SETTINGS.get("lanes")
-    if isinstance(wanted, list) and wanted:
-        by_id = {ln["id"]: ln for ln in PLAYLIST_LANES}
-        lanes = [by_id[i] for i in wanted if i in by_id]
-    else:
-        lanes = list(PLAYLIST_LANES)
+    if not isinstance(wanted, list) or not wanted:
+        wanted = list(_CATALOG.get("default_lanes") or [ln["id"] for ln in PLAYLIST_LANES])
+    lanes: list[dict] = []
+    for raw in wanted:
+        cid = str(raw)
+        if cid in banned:
+            continue
+        lane = by_id.get(cid)
+        if lane:
+            lanes.append(lane)
+    if not lanes:
+        lanes = [ln for ln in PLAYLIST_LANES if ln["id"] not in banned]
     return lanes or list(PLAYLIST_LANES)
 
 
+def soft_rank_weights(n: int) -> list[float]:
+    """排序权重：最前略高、最后仍可中；差距刻意压小。"""
+    if n <= 1:
+        return [1.0]
+    # 第 1 名约 1.28，最后一名 1.0
+    return [1.0 + 0.28 * ((n - 1 - i) / (n - 1)) for i in range(n)]
+
+
+def weighted_choice_index(weights: list[float]) -> int:
+    total = sum(weights) or 1.0
+    r = random.random() * total
+    acc = 0.0
+    for i, w in enumerate(weights):
+        acc += w
+        if r <= acc:
+            return i
+    return len(weights) - 1
+
+
+def weighted_sample_lanes(lanes: list[dict], k: int, *, replace: bool) -> list[dict]:
+    """按列表顺序做轻量加权抽样。"""
+    if not lanes or k <= 0:
+        return []
+    if replace:
+        out: list[dict] = []
+        weights = soft_rank_weights(len(lanes))
+        for _ in range(k):
+            out.append(lanes[weighted_choice_index(weights)])
+        return out
+    pool = list(lanes)
+    weights = soft_rank_weights(len(pool))
+    out = []
+    for _ in range(min(k, len(pool))):
+        idx = weighted_choice_index(weights)
+        out.append(pool.pop(idx))
+        weights.pop(idx)
+    return out
+
+
 def plan_lane_slots(size: int) -> list[dict]:
-    """勾选类型数 < 本数：类型可重复填满；≥ 本数：打乱后各出一本（多选的先不进片单）。"""
+    """少于本数可重复；达到/超过本数时每类至多一本，并排序加权。"""
     lanes = selected_lanes()
     size = max(1, min(5, int(size) or PLAYLIST_SIZE))
-    pool = list(lanes)
-    random.shuffle(pool)
-    if len(pool) >= size:
-        return pool[:size]
-    ordered: list[dict] = []
-    i = 0
-    while len(ordered) < size:
-        ordered.append(pool[i % len(pool)])
-        i += 1
-    return ordered
+    if len(lanes) >= size:
+        return weighted_sample_lanes(lanes, size, replace=False)
+    return weighted_sample_lanes(lanes, size, replace=True)
 
 
 def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
-    """按勾选类型排片：少选可重复，多选每类至多一本。"""
+    """按选书类型（可加权）排片；黑名单类型永不入选。"""
     books: list[dict] = []
     picked: set[str] = set()
     used_families: list[str] = []
     used_lanes: list[str] = []
     ordered = plan_lane_slots(size)
+    banned_fams = {
+        str(CATEGORY_BY_ID[i].get("family") or i)
+        for i in blacklist_ids()
+        if i in CATEGORY_BY_ID
+    }
     for i, lane in enumerate(ordered):
         print(f"--- playlist {i + 1}/{size} lane={lane['id']} ({lane['label']}) ---")
-        # 仍按本格赛道避让明显跑偏的题材；不再做「史传全天最多 1」
-        avoid: list[str] = []
-        if lane["family"] != "history":
-            avoid.append("history")
+        avoid = sorted(banned_fams - {lane.get("family")})
         doc = build_document(exclude_ids=picked, lane=lane, avoid_families=avoid)
         bid = str(doc.get("bookId") or "")
         fam = doc.get("family") or book_family(doc)
         if not bid or bid in picked:
             raise RuntimeError(f"片单第 {i + 1} 本无效或重复")
-        if lane["family"] != "history" and fam == "history":
-            print(f"warn: lane={lane['id']} 仍落到史传，重试一次…")
+        # 若落到黑名单题材，再试一次
+        if fam in banned_fams and fam != lane.get("family"):
+            print(f"warn: lane={lane['id']} 命中黑名单题材 {fam}，重试…")
             doc = build_document(
                 exclude_ids=picked | {bid},
                 lane=lane,
-                avoid_families=list(dict.fromkeys(avoid + ["history"])),
+                avoid_families=list(dict.fromkeys(avoid + [fam])),
             )
             bid = str(doc.get("bookId") or "")
             fam = doc.get("family") or book_family(doc)

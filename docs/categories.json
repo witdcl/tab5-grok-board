@@ -1,0 +1,333 @@
+{
+  "source": "对齐微信读书书店常见一级/常见类目；match 用于书目 category 字段匹配",
+  "categories": [
+    {
+      "id": "novel",
+      "label": "小说",
+      "family": "fiction",
+      "match": ["精品小说", "小说", "当代小说", "中国文学"],
+      "seeds": ["当代小说 经典", "长篇小说", "余华 小说", "张爱玲 小说"],
+      "hint": "现当代长篇故事"
+    },
+    {
+      "id": "world_lit",
+      "label": "外国文学",
+      "family": "world",
+      "match": ["外国文学", "翻译", "世界文学"],
+      "seeds": ["外国文学 经典", "翻译小说", "马尔克斯", "萨拉马戈"],
+      "hint": "翻译小说与世界文学"
+    },
+    {
+      "id": "literature",
+      "label": "文学",
+      "family": "essay",
+      "match": ["文学"],
+      "seeds": ["文学 经典", "现代文学", "文学批评"],
+      "hint": "广义文学与文论"
+    },
+    {
+      "id": "essay",
+      "label": "散文随笔",
+      "family": "essay",
+      "match": ["散文", "随笔", "小品"],
+      "seeds": ["随笔 经典", "散文集", "木心", "汪曾祺"],
+      "hint": "散文、随笔、小品"
+    },
+    {
+      "id": "poetry",
+      "label": "诗歌戏剧",
+      "family": "essay",
+      "match": ["诗歌", "诗", "戏剧", "剧本"],
+      "seeds": ["现代诗", "诗歌 选集", "戏剧 经典"],
+      "hint": "诗集、戏剧、剧作"
+    },
+    {
+      "id": "mystery",
+      "label": "悬疑推理",
+      "family": "fiction",
+      "match": ["悬疑", "推理", "侦探"],
+      "seeds": ["悬疑小说", "推理小说 经典", "本格推理"],
+      "hint": "悬疑、推理、侦探"
+    },
+    {
+      "id": "scifi",
+      "label": "科幻奇幻",
+      "family": "fiction",
+      "match": ["科幻", "奇幻", "魔幻"],
+      "seeds": ["科幻小说", "奇幻 小说", "刘慈欣"],
+      "hint": "科幻、奇幻"
+    },
+    {
+      "id": "wuxia",
+      "label": "武侠仙侠",
+      "family": "fiction",
+      "match": ["武侠", "仙侠", "玄幻"],
+      "seeds": ["武侠小说", "金庸", "古龙"],
+      "hint": "武侠、仙侠、玄幻"
+    },
+    {
+      "id": "romance",
+      "label": "言情",
+      "family": "fiction",
+      "match": ["言情", "爱情", "浪漫"],
+      "seeds": ["言情小说", "爱情小说"],
+      "hint": "言情与爱情故事"
+    },
+    {
+      "id": "history",
+      "label": "历史",
+      "family": "history",
+      "match": ["历史", "史学", "通史", "断代"],
+      "seeds": ["中国历史", "历史 非虚构", "微观史"],
+      "hint": "通史、断代、史学"
+    },
+    {
+      "id": "biography",
+      "label": "传记",
+      "family": "history",
+      "match": ["传记", "回忆录", "自传"],
+      "seeds": ["人物传记", "回忆录", "自传"],
+      "hint": "人物传记、回忆录"
+    },
+    {
+      "id": "reportage",
+      "label": "纪实",
+      "family": "history",
+      "match": ["纪实", "报告文学", "非虚构"],
+      "seeds": ["纪实文学", "非虚构 写作", "报告文学"],
+      "hint": "纪实与非虚构报道"
+    },
+    {
+      "id": "society",
+      "label": "社会文化",
+      "family": "science",
+      "match": ["社会文化", "社会", "文化", "社会学"],
+      "seeds": ["社会文化", "社会学 经典", "文化研究"],
+      "hint": "社会观察与文化"
+    },
+    {
+      "id": "philosophy",
+      "label": "哲学宗教",
+      "family": "essay",
+      "match": ["哲学", "宗教", "思想"],
+      "seeds": ["哲学 入门", "思想史", "宗教 文化"],
+      "hint": "哲学、思想、宗教"
+    },
+    {
+      "id": "psychology",
+      "label": "心理学",
+      "family": "science",
+      "match": ["心理", "心理学"],
+      "seeds": ["心理学 经典", "社会心理", "认知心理"],
+      "hint": "心理与认知"
+    },
+    {
+      "id": "politics",
+      "label": "政治军事",
+      "family": "history",
+      "match": ["政治", "军事", "国际"],
+      "seeds": ["政治学", "国际关系", "军事史"],
+      "hint": "政治、军事、国际"
+    },
+    {
+      "id": "law",
+      "label": "法律",
+      "family": "science",
+      "match": ["法律", "法学", "司法"],
+      "seeds": ["法律 入门", "法学 经典", "案例"],
+      "hint": "法学与法律读物"
+    },
+    {
+      "id": "finance",
+      "label": "经济理财",
+      "family": "science",
+      "match": ["经济", "理财", "金融", "投资"],
+      "seeds": ["经济学", "金融史", "投资"],
+      "hint": "经济、金融、理财"
+    },
+    {
+      "id": "management",
+      "label": "管理",
+      "family": "science",
+      "match": ["管理", "商业", "企业"],
+      "seeds": ["管理学", "商业传记", "组织"],
+      "hint": "管理与商业"
+    },
+    {
+      "id": "growth",
+      "label": "个人成长",
+      "family": "science",
+      "match": ["个人成长", "成功", "励志", "自我"],
+      "seeds": ["个人成长", "方法论", "习惯"],
+      "hint": "成长、方法、习惯"
+    },
+    {
+      "id": "education",
+      "label": "教育学习",
+      "family": "science",
+      "match": ["教育", "学习", "教学法"],
+      "seeds": ["教育学", "学习方法", "教育史"],
+      "hint": "教育与学习"
+    },
+    {
+      "id": "science",
+      "label": "科学技术",
+      "family": "science",
+      "match": ["科学", "科技", "科普", "自然科学"],
+      "seeds": ["科普 经典", "科学史", "自然科学"],
+      "hint": "科学、科普、科技"
+    },
+    {
+      "id": "computer",
+      "label": "计算机",
+      "family": "science",
+      "match": ["计算机", "编程", "互联网", "软件"],
+      "seeds": ["计算机科学", "编程", "互联网"],
+      "hint": "计算机与互联网"
+    },
+    {
+      "id": "medical",
+      "label": "医学健康",
+      "family": "science",
+      "match": ["医学", "健康", "医疗", "养生"],
+      "seeds": ["医学 科普", "健康", "公共卫生"],
+      "hint": "医学与健康"
+    },
+    {
+      "id": "life",
+      "label": "生活百科",
+      "family": "science",
+      "match": ["生活", "百科", "家居", "两性"],
+      "seeds": ["生活百科", "家居", "生活方式"],
+      "hint": "生活实用与百科"
+    },
+    {
+      "id": "food",
+      "label": "美食",
+      "family": "science",
+      "match": ["美食", "烹饪", "饮食"],
+      "seeds": ["美食 文化", "饮食", "烹饪"],
+      "hint": "饮食与美食文化"
+    },
+    {
+      "id": "travel",
+      "label": "旅行",
+      "family": "science",
+      "match": ["旅行", "旅游", "地理"],
+      "seeds": ["旅行文学", "游记", "地理"],
+      "hint": "旅行、游记、地理"
+    },
+    {
+      "id": "art",
+      "label": "艺术",
+      "family": "science",
+      "match": ["艺术", "美术", "绘画"],
+      "seeds": ["艺术史", "美术", "绘画"],
+      "hint": "艺术与美术"
+    },
+    {
+      "id": "design",
+      "label": "设计",
+      "family": "science",
+      "match": ["设计", "建筑", "工业设计"],
+      "seeds": ["设计史", "建筑", "平面设计"],
+      "hint": "设计与建筑"
+    },
+    {
+      "id": "music",
+      "label": "音乐",
+      "family": "science",
+      "match": ["音乐", "乐评"],
+      "seeds": ["音乐史", "乐评", "古典音乐"],
+      "hint": "音乐与乐评"
+    },
+    {
+      "id": "photo",
+      "label": "摄影",
+      "family": "science",
+      "match": ["摄影"],
+      "seeds": ["摄影", "摄影史"],
+      "hint": "摄影与影像"
+    },
+    {
+      "id": "sports",
+      "label": "体育",
+      "family": "science",
+      "match": ["体育", "运动"],
+      "seeds": ["体育", "运动 文化"],
+      "hint": "体育与运动"
+    },
+    {
+      "id": "nature",
+      "label": "自然",
+      "family": "science",
+      "match": ["自然", "博物", "动植物", "环境"],
+      "seeds": ["自然写作", "博物", "环境"],
+      "hint": "自然与博物"
+    },
+    {
+      "id": "children",
+      "label": "童书",
+      "family": "blocked",
+      "match": ["童书", "少儿", "儿童文学", "儿童"],
+      "seeds": ["童书"],
+      "hint": "少儿读物"
+    },
+    {
+      "id": "comics",
+      "label": "漫画绘本",
+      "family": "blocked",
+      "match": ["漫画", "绘本", "漫画绘本"],
+      "seeds": ["漫画"],
+      "hint": "漫画与绘本"
+    },
+    {
+      "id": "magazine",
+      "label": "期刊杂志",
+      "family": "blocked",
+      "match": ["期刊", "杂志", "期刊杂志"],
+      "seeds": ["期刊"],
+      "hint": "期刊与杂志"
+    }
+  ],
+  "default_lanes": [
+    "novel",
+    "world_lit",
+    "literature",
+    "essay",
+    "mystery",
+    "scifi",
+    "history",
+    "biography",
+    "reportage",
+    "society",
+    "philosophy",
+    "psychology",
+    "finance",
+    "science",
+    "computer",
+    "art",
+    "nature",
+    "politics",
+    "poetry",
+    "travel"
+  ],
+  "default_blacklist": [
+    "children",
+    "comics",
+    "magazine",
+    "romance",
+    "wuxia",
+    "growth",
+    "life",
+    "food",
+    "photo",
+    "sports",
+    "medical",
+    "education",
+    "management",
+    "law",
+    "music",
+    "design"
+  ]
+}

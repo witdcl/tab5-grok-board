@@ -15,7 +15,6 @@
       --brass: #c4a15a;
       --muted: #9a9082;
       --line: #3a342c;
-      --ink: #1c1814;
     }
     * { box-sizing: border-box; }
     body {
@@ -28,7 +27,7 @@
       font-family: var(--font);
       padding: 28px 18px 64px;
     }
-    .wrap { max-width: 720px; margin: 0 auto; }
+    .wrap { max-width: 920px; margin: 0 auto; }
     a { color: var(--brass); text-decoration: none; }
     a:hover { color: #e0c888; }
     h1 {
@@ -51,7 +50,7 @@
       background: rgba(28, 24, 20, 0.55);
     }
     h2 {
-      margin: 0 0 14px;
+      margin: 0 0 10px;
       font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.22em;
@@ -74,9 +73,11 @@
       padding: 10px 12px;
       border-radius: 2px;
     }
-    textarea { min-height: 72px; resize: vertical; }
+    textarea { min-height: 64px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) {
+      .row, .boards { grid-template-columns: 1fr !important; }
+    }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
     button {
       appearance: none;
@@ -90,9 +91,8 @@
       cursor: pointer;
     }
     button.primary { background: var(--brass); color: #1a140c; font-weight: 700; }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
     .hint {
-      margin: 10px 0 0;
+      margin: 0 0 14px;
       font-size: 12px;
       line-height: 1.7;
       color: #6e6558;
@@ -110,26 +110,69 @@
       font-size: 0.92em;
       color: #d2c4a8;
     }
-    .lane-list {
+    .boards {
       display: grid;
-      gap: 8px;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      align-items: start;
     }
-    .lane-list label.lane {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin: 0;
-      padding: 10px 12px;
+    .board {
       border: 1px solid var(--line);
       background: #100e0c;
-      color: var(--paper);
-      letter-spacing: 0;
-      font-size: 13px;
-      line-height: 1.45;
-      cursor: pointer;
+      min-height: 280px;
+      padding: 10px;
     }
-    .lane-list label.lane input { margin-top: 3px; width: auto; }
-    .lane-list .lane small { display: block; color: #6e6558; margin-top: 2px; }
+    .board h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+    }
+    .board.drop-hover { border-color: var(--brass); }
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      margin-bottom: 6px;
+      border: 1px solid #2a2620;
+      background: #161310;
+      cursor: grab;
+      user-select: none;
+    }
+    .chip:active { cursor: grabbing; }
+    .chip.dragging { opacity: 0.45; }
+    .chip .handle {
+      color: #5a5348;
+      letter-spacing: 0;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .chip .meta { flex: 1; min-width: 0; }
+    .chip .name { font-size: 13px; color: var(--paper); }
+    .chip .desc {
+      font-size: 11px;
+      color: #6e6558;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chip .rank {
+      font-size: 11px;
+      color: var(--brass);
+      letter-spacing: 0.08em;
+      min-width: 1.6em;
+      text-align: right;
+    }
+    #ban-list .chip .rank { display: none; }
+    .empty {
+      color: #5a5348;
+      font-size: 12px;
+      padding: 18px 8px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -137,15 +180,26 @@
     <h1>设置</h1>
     <p class="sub">
       <a href="./">← 返回预览</a>
-      · 先勾想读的类型，保存后再生成；Tab5 会跟着更新。
+      · 类型对齐微信读书常见类目。左边是选书，右边是黑名单。
     </p>
 
     <section>
-      <h2>想读哪些类型</h2>
-      <p class="hint" style="margin-top:0">
-        勾选少于每天本数时，类型可能重复凑满；勾选达到或超过本数时，每类最多出一本。
+      <h2>选书类型与黑名单</h2>
+      <p class="hint">
+        左边可拖拽排序：越靠前略优先，最后仍可能被选中。<br />
+        拖到右边加入黑名单（一定不会出现）；再拖回左边即可恢复。<br />
+        勾选少于每天本数时类型可重复；达到或超过本数时每类最多一本。
       </p>
-      <div id="lane-list" class="lane-list"></div>
+      <div class="boards">
+        <div class="board" id="pick-board" data-list="pick">
+          <h3>选书类型（可排序）</h3>
+          <div id="pick-list"></div>
+        </div>
+        <div class="board" id="ban-board" data-list="ban">
+          <h3>黑名单</h3>
+          <div id="ban-list"></div>
+        </div>
+      </div>
       <div class="row" style="margin-top:14px">
         <div>
           <label for="playlist_size">每天几本</label>
@@ -162,15 +216,13 @@
         <button type="button" class="primary" id="btn-save">保存设置</button>
         <button type="button" id="btn-reload">重新加载</button>
       </div>
-      <p class="hint">保存要用下面的访问令牌；没有令牌也可以在仓库里直接改设置文件。</p>
+      <p class="hint" style="margin-top:12px">保存要用下面的访问令牌。</p>
       <div class="msg" id="settings-msg"></div>
     </section>
 
     <section>
       <h2>马上换一批</h2>
-      <p class="hint" style="margin-top:0">
-        按当前勾选重新找书、写文案并推到主页。一般要几分钟。
-      </p>
+      <p class="hint">按当前选书类型重新找书并推到主页，一般要几分钟。</p>
       <div class="actions">
         <button type="button" class="primary" id="btn-run">马上换一批</button>
         <a id="actions-link" href="#" target="_blank" rel="noopener">查看进度</a>
@@ -188,13 +240,13 @@
         <button type="button" id="btn-token-save">记住</button>
         <button type="button" id="btn-token-clear">清除</button>
       </div>
-      <p class="hint">令牌只存在本机浏览器，不会上传到网页。公用电脑不要填。</p>
+      <p class="hint">令牌只存在本机浏览器。公用电脑不要填。</p>
       <div class="msg" id="token-msg"></div>
     </section>
 
     <section>
       <h2>设备拉取地址</h2>
-      <p class="hint" style="margin-top:0">Tab5 读的就是这个地址：</p>
+      <p class="hint">Tab5 读的就是这个地址：</p>
       <p><code id="device-url">./weread_day.json</code></p>
     </section>
   </div>
@@ -202,20 +254,20 @@
   <script>
     const LS_TOKEN = "tab5_weread_gh_token";
     const LS_REPO = "tab5_weread_gh_repo";
-    const LANES = [
-      { id: "fiction_cn", label: "中文小说", hint: "现当代或经典长篇" },
-      { id: "fiction_world", label: "翻译小说", hint: "外国文学译本" },
-      { id: "essay", label: "随笔思想", hint: "随笔、评论、思想类" },
-      { id: "science", label: "科学社会", hint: "科学、社会、艺术、自然" },
-      { id: "history", label: "史传纪实", hint: "通史、传记、纪实" },
-    ];
     let siteConfig = { repo: "", workflow: "daily.yml" };
+    let catalog = { categories: [], default_lanes: [], default_blacklist: [] };
+    let pickIds = [];
+    let banIds = [];
+    let dragId = null;
 
     function $(id) { return document.getElementById(id); }
     function setMsg(id, text, ok) {
       const el = $(id);
       el.textContent = text || "";
       el.className = "msg " + (ok === true ? "ok" : ok === false ? "err" : "");
+    }
+    function byId(id) {
+      return (catalog.categories || []).find((c) => c.id === id);
     }
     function currentRepo() {
       return ($("repo").value || siteConfig.repo || "").trim();
@@ -233,54 +285,150 @@
         ? `https://github.com/${repo}/actions/workflows/${siteConfig.workflow || "daily.yml"}`
         : "#";
     }
-    function renderLanes(selected) {
-      const box = $("lane-list");
-      const set = new Set(selected && selected.length ? selected : LANES.map((l) => l.id));
-      box.innerHTML = "";
-      LANES.forEach((lane) => {
-        const lab = document.createElement("label");
-        lab.className = "lane";
-        lab.innerHTML = `<input type="checkbox" value="${lane.id}" ${set.has(lane.id) ? "checked" : ""} />
-          <span>${lane.label}<small>${lane.hint}</small></span>`;
-        box.appendChild(lab);
+
+    function chipEl(id, showRank, rank) {
+      const cat = byId(id) || { id, label: id, hint: "" };
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.draggable = true;
+      el.dataset.id = id;
+      el.innerHTML = `
+        <span class="handle" aria-hidden="true">⋮⋮</span>
+        <div class="meta">
+          <div class="name">${cat.label || id}</div>
+          <div class="desc">${cat.hint || ""}</div>
+        </div>
+        ${showRank ? `<span class="rank">${rank}</span>` : ""}
+      `;
+      el.addEventListener("dragstart", (ev) => {
+        dragId = id;
+        el.classList.add("dragging");
+        ev.dataTransfer.setData("text/plain", id);
+        ev.dataTransfer.effectAllowed = "move";
+      });
+      el.addEventListener("dragend", () => {
+        dragId = null;
+        el.classList.remove("dragging");
+        document.querySelectorAll(".board").forEach((b) => b.classList.remove("drop-hover"));
+      });
+      return el;
+    }
+
+    function renderLists() {
+      const pick = $("pick-list");
+      const ban = $("ban-list");
+      pick.innerHTML = "";
+      ban.innerHTML = "";
+      if (!pickIds.length) {
+        pick.innerHTML = `<div class="empty">把类型拖到这里</div>`;
+      } else {
+        pickIds.forEach((id, i) => pick.appendChild(chipEl(id, true, i + 1)));
+      }
+      if (!banIds.length) {
+        ban.innerHTML = `<div class="empty">不会出现的类型</div>`;
+      } else {
+        banIds.forEach((id) => ban.appendChild(chipEl(id, false)));
+      }
+    }
+
+    function moveToList(id, listName, beforeId) {
+      pickIds = pickIds.filter((x) => x !== id);
+      banIds = banIds.filter((x) => x !== id);
+      if (listName === "pick") {
+        if (beforeId && pickIds.includes(beforeId)) {
+          pickIds.splice(pickIds.indexOf(beforeId), 0, id);
+        } else {
+          pickIds.push(id);
+        }
+      } else {
+        if (beforeId && banIds.includes(beforeId)) {
+          banIds.splice(banIds.indexOf(beforeId), 0, id);
+        } else {
+          banIds.push(id);
+        }
+      }
+      renderLists();
+    }
+
+    function bindBoard(board) {
+      board.addEventListener("dragover", (ev) => {
+        ev.preventDefault();
+        board.classList.add("drop-hover");
+        ev.dataTransfer.dropEffect = "move";
+      });
+      board.addEventListener("dragleave", () => board.classList.remove("drop-hover"));
+      board.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        board.classList.remove("drop-hover");
+        const id = ev.dataTransfer.getData("text/plain") || dragId;
+        if (!id) return;
+        const chip = ev.target.closest(".chip");
+        const beforeId = chip && chip.dataset.id !== id ? chip.dataset.id : null;
+        moveToList(id, board.dataset.list, beforeId);
       });
     }
-    function selectedLanes() {
-      return [...document.querySelectorAll("#lane-list input:checked")].map((el) => el.value);
+
+    function normalizeLists(settings) {
+      const all = (catalog.categories || []).map((c) => c.id);
+      const allSet = new Set(all);
+      let lanes = Array.isArray(settings.lanes) ? settings.lanes.filter((id) => allSet.has(id)) : [];
+      let bans = Array.isArray(settings.blacklist) ? settings.blacklist.filter((id) => allSet.has(id)) : [];
+      if (!lanes.length && !bans.length) {
+        lanes = (catalog.default_lanes || []).filter((id) => allSet.has(id));
+        bans = (catalog.default_blacklist || []).filter((id) => allSet.has(id));
+      }
+      const used = new Set([...lanes, ...bans]);
+      // 未出现在两边的类型默认进选书末尾
+      all.forEach((id) => {
+        if (!used.has(id)) lanes.push(id);
+      });
+      // 两边互斥
+      bans = bans.filter((id) => !lanes.includes(id));
+      pickIds = lanes;
+      banIds = bans;
     }
+
     function fillSettings(s) {
       $("playlist_size").value = s.playlist_size ?? 5;
       $("daily_hour").value = s.daily_hour ?? 7;
       $("note").value = s.note || "";
-      renderLanes(s.lanes);
+      normalizeLists(s || {});
+      renderLists();
     }
     function readSettingsForm() {
-      const lanes = selectedLanes();
       return {
         playlist_size: Number($("playlist_size").value) || 5,
         daily_hour: Number($("daily_hour").value) || 7,
         timezone: "Asia/Shanghai",
-        lanes: lanes.length ? lanes : LANES.map((l) => l.id),
+        lanes: pickIds.slice(),
+        blacklist: banIds.slice(),
         note: $("note").value || "",
       };
     }
+
     async function loadAll() {
       try {
-        const [sRes, cRes] = await Promise.all([
+        const [sRes, cRes, catRes] = await Promise.all([
           fetch(`./settings.json?t=${Date.now()}`, { cache: "no-store" }),
           fetch(`./site-config.json?t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`./categories.json?t=${Date.now()}`, { cache: "no-store" }),
         ]);
-        if (sRes.ok) fillSettings(await sRes.json());
+        if (catRes.ok) catalog = await catRes.json();
         if (cRes.ok) siteConfig = await cRes.json();
-      } catch (_) { /* ignore */ }
+        if (sRes.ok) fillSettings(await sRes.json());
+        else fillSettings({});
+      } catch (_) {
+        fillSettings({});
+      }
       $("token").value = localStorage.getItem(LS_TOKEN) || "";
       $("repo").value = localStorage.getItem(LS_REPO) || siteConfig.repo || "";
       refreshDeviceUrl();
     }
+
     async function gh(path, method, body) {
       const token = $("token").value.trim();
       const repo = currentRepo();
-      if (!token || !repo) throw new Error("请先填写仓库与 Token");
+      if (!token || !repo) throw new Error("请先填写仓库与令牌");
       const res = await fetch(`https://api.github.com/repos/${repo}${path}`, {
         method,
         headers: {
@@ -303,10 +451,12 @@
       try {
         const cur = await gh(`/contents/${path}`, "GET");
         sha = cur.sha;
-      } catch (_) { /* new file */ }
+      } catch (_) { /* new */ }
       return gh(`/contents/${path}`, "PUT", { message, content, sha, branch: "main" });
     }
 
+    bindBoard($("pick-board"));
+    bindBoard($("ban-board"));
     $("btn-reload").addEventListener("click", () => loadAll());
     $("btn-token-save").addEventListener("click", () => {
       localStorage.setItem(LS_TOKEN, $("token").value.trim());
@@ -324,8 +474,8 @@
     $("btn-save").addEventListener("click", async () => {
       setMsg("settings-msg", "保存中…");
       try {
-        const settings = readSettingsForm();
-        await putFile("docs/settings.json", settings, "chore: update weread settings");
+        if (!pickIds.length) throw new Error("选书类型不能为空");
+        await putFile("docs/settings.json", readSettingsForm(), "chore: update weread type prefs");
         setMsg("settings-msg", "设置已保存。", true);
       } catch (e) {
         setMsg("settings-msg", String(e.message || e), false);

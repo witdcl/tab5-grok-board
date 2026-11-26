@@ -3,11 +3,44 @@
   "daily_hour": 7,
   "timezone": "Asia/Shanghai",
   "lanes": [
-    "fiction_cn",
-    "fiction_world",
+    "novel",
+    "world_lit",
+    "literature",
     "essay",
+    "mystery",
+    "scifi",
+    "history",
+    "biography",
+    "reportage",
+    "society",
+    "philosophy",
+    "psychology",
+    "finance",
     "science",
-    "history"
+    "computer",
+    "art",
+    "nature",
+    "politics",
+    "poetry",
+    "travel"
   ],
-  "note": "勾选少于本数可重复类型；达到或超过本数则每类最多一本。改完先保存，再点马上换一批。"
+  "blacklist": [
+    "children",
+    "comics",
+    "magazine",
+    "romance",
+    "wuxia",
+    "growth",
+    "life",
+    "food",
+    "photo",
+    "sports",
+    "medical",
+    "education",
+    "management",
+    "law",
+    "music",
+    "design"
+  ],
+  "note": "选书类型可拖拽排序：越靠前略优先，最后仍可能中选。黑名单类型一定不会出现。"
 }
