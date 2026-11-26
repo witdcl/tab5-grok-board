@@ -3,9 +3,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-#include <NetworkClientSecure.h>
+#include <WiFiClientSecure.h>
 
 #include <cstring>
+#include <new>
 #include <sys/time.h>
 #include <time.h>
 
@@ -138,33 +139,81 @@ bool http_get_body(const char* url, String& body, char* err, size_t err_n)
         return false;
     }
     Serial.printf("weread GET %s\n", url);
+    body = "";
+
+    // 与封面下载同一套路：静态 WiFiClientSecure，避免堆/栈生命周期崩溃
+    static WiFiClientSecure tls;
     HTTPClient http;
-    http.setConnectTimeout(12000);
-    http.setTimeout(25000);
+    http.setConnectTimeout(15000);
+    http.setTimeout(30000);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setReuse(false);
 
-    NetworkClientSecure secure;
     bool began = false;
     if (url_is_https(url)) {
-        secure.setInsecure();
-        secure.setTimeout(25000);
-        began = http.begin(secure, String(url));
+        tls.setInsecure();
+        tls.setTimeout(30000);
+        began = http.begin(tls, url);
     } else {
-        began = http.begin(String(url));
+        began = http.begin(url);
     }
     if (!began) {
         std::snprintf(err, err_n, "%s", "打不开荐书 URL");
+        tls.stop();
         return false;
     }
+
     const int code = http.GET();
+    Serial.printf("weread HTTP %d\n", code);
     if (code != HTTP_CODE_OK) {
         std::snprintf(err, err_n, "HTTP %d", code);
         http.end();
+        tls.stop();
         return false;
     }
-    body = http.getString();
+
+    // 不用 getString()：GitHub/CDN 分块回包时更稳
+    const int content_len = http.getSize();
+    if (content_len > 0) {
+        body.reserve(static_cast<unsigned>(content_len) + 16);
+    } else {
+        body.reserve(12288);
+    }
+    NetworkClient* stream = http.getStreamPtr();
+    const uint32_t start = millis();
+    uint8_t buf[512];
+    while (http.connected() || (stream && stream->available())) {
+        const size_t avail = stream ? stream->available() : 0;
+        if (avail) {
+            const size_t n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
+            if (n == 0) {
+                break;
+            }
+            body.concat(reinterpret_cast<const char*>(buf), n);
+            if (content_len > 0 && static_cast<int>(body.length()) >= content_len) {
+                break;
+            }
+            if (body.length() > 200000) {
+                break;
+            }
+        } else {
+            if (content_len > 0 && static_cast<int>(body.length()) >= content_len) {
+                break;
+            }
+            delay(2);
+        }
+        if (millis() - start > 28000) {
+            break;
+        }
+    }
     http.end();
+    tls.stop();
+
+    if (body.length() < 8) {
+        std::snprintf(err, err_n, "%s", "片单正文过短");
+        return false;
+    }
+    Serial.printf("weread body=%u\n", static_cast<unsigned>(body.length()));
     return true;
 }
 

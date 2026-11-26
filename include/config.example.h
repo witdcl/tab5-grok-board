@@ -14,5 +14,6 @@
 
 // 微信读书荐书板：每日片单（GitHub Pages 或局域网旁路）
 // Pages 示例：https://<user>.github.io/tab5-grok-board/weread_day.json
-#define WEREAD_DAY_URL "https://witdcl.github.io/tab5-grok-board/weread_day.json"
-#define WEREAD_BOOK_URL "https://witdcl.github.io/tab5-grok-board/weread_book.json"
+// jsDelivr 镜像仓库 docs/，与 Pages 同源；直连 github.io 在部分 Tab5 TLS 栈上会崩
+#define WEREAD_DAY_URL "https://cdn.jsdelivr.net/gh/witdcl/tab5-grok-board@main/docs/weread_day.json"
+#define WEREAD_BOOK_URL "https://cdn.jsdelivr.net/gh/witdcl/tab5-grok-board@main/docs/weread_book.json"
