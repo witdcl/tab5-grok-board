@@ -76,7 +76,7 @@ void do_fetch()
         WereadBook err{};
         err.ok = false;
         std::snprintf(err.error, sizeof(err.error), "%s",
-                      "WEREAD_DAY_URL 未配置。在 config.h 填写 Mac mini 地址。");
+                      "WEREAD_DAY_URL 未配置。在 config.h 填写 Pages 片单地址。");
         weread_ui_set_book(err);
         return;
     }

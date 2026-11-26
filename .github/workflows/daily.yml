@@ -59,3 +59,13 @@ jobs:
             git commit -m "chore: daily weread playlist $(date -u +%Y-%m-%d)"
             git push
           fi
+
+      - name: Purge jsDelivr @main mirrors
+        if: success()
+        run: |
+          set -euo pipefail
+          # 旧固件若仍指向 jsDelivr @main，推送后主动清缓存，避免与 Pages 脱节
+          for path in docs/weread_day.json docs/weread_book.json; do
+            curl -fsS "https://purge.jsdelivr.net/gh/witdcl/tab5-grok-board@main/${path}" || true
+            echo
+          done

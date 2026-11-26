@@ -12,8 +12,7 @@
 // 应用层状态文档。这不是 Grok Bot 的官方接口。
 #define STATUS_URL "http://192.168.x.x:8787/status.json"
 
-// 微信读书荐书板：每日片单（GitHub Pages 或局域网旁路）
-// Pages 示例：https://<user>.github.io/tab5-grok-board/weread_day.json
-// jsDelivr 镜像仓库 docs/，与 Pages 同源；直连 github.io 在部分 Tab5 TLS 栈上会崩
-#define WEREAD_DAY_URL "https://cdn.jsdelivr.net/gh/witdcl/tab5-grok-board@main/docs/weread_day.json"
-#define WEREAD_BOOK_URL "https://cdn.jsdelivr.net/gh/witdcl/tab5-grok-board@main/docs/weread_book.json"
+// 微信读书荐书板：与 GitHub Pages 预览同源（不要用 jsDelivr @main，会缓存旧片单）
+// 例：https://<user>.github.io/tab5-grok-board/weread_day.json
+#define WEREAD_DAY_URL "https://witdcl.github.io/tab5-grok-board/weread_day.json"
+#define WEREAD_BOOK_URL "https://witdcl.github.io/tab5-grok-board/weread_book.json"
