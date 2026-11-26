@@ -10,7 +10,7 @@
 #include <cstring>
 
 // loopTask：片单 JSON + 多封面缓冲需要更大栈
-SET_LOOP_TASK_STACK_SIZE(40 * 1024);
+SET_LOOP_TASK_STACK_SIZE(64 * 1024);
 
 namespace {
 

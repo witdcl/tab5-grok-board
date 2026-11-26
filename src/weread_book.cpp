@@ -162,6 +162,8 @@ bool http_get_body(const char* url, String& body, char* err, size_t err_n)
         tls.stop();
         return false;
     }
+    // CDN 常下发 gzip；设备端不解压会导致「有正文但 JSON 解析失败」
+    http.addHeader("Accept-Encoding", "identity");
 
     const int code = http.GET();
     Serial.printf("weread HTTP %d\n", code);
@@ -172,40 +174,8 @@ bool http_get_body(const char* url, String& body, char* err, size_t err_n)
         return false;
     }
 
-    // 不用 getString()：GitHub/CDN 分块回包时更稳
-    const int content_len = http.getSize();
-    if (content_len > 0) {
-        body.reserve(static_cast<unsigned>(content_len) + 16);
-    } else {
-        body.reserve(12288);
-    }
-    NetworkClient* stream = http.getStreamPtr();
-    const uint32_t start = millis();
-    uint8_t buf[512];
-    while (http.connected() || (stream && stream->available())) {
-        const size_t avail = stream ? stream->available() : 0;
-        if (avail) {
-            const size_t n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
-            if (n == 0) {
-                break;
-            }
-            body.concat(reinterpret_cast<const char*>(buf), n);
-            if (content_len > 0 && static_cast<int>(body.length()) >= content_len) {
-                break;
-            }
-            if (body.length() > 200000) {
-                break;
-            }
-        } else {
-            if (content_len > 0 && static_cast<int>(body.length()) >= content_len) {
-                break;
-            }
-            delay(2);
-        }
-        if (millis() - start > 28000) {
-            break;
-        }
-    }
+    // 必须用 getString()：CDN 常是 chunked，裸读流会把 "27ec\\r\\n" 这种块头读进正文
+    body = http.getString();
     http.end();
     tls.stop();
 
@@ -264,6 +234,7 @@ bool weread_day_fetch(const char* url, WereadDay& out)
     JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, body);
     if (err) {
+        Serial.printf("weread JSON fail: %s head=%.60s\n", err.c_str(), body.c_str());
         std::snprintf(out.error, sizeof(out.error), "%s", "JSON 解析失败");
         return false;
     }

@@ -5,7 +5,7 @@
 #include <HTTPClient.h>
 #include <M5GFX.h>
 #include <M5Unified.h>
-#include <NetworkClientSecure.h>
+#include <WiFiClientSecure.h>
 #include <esp_heap_caps.h>
 #include <time.h>
 
@@ -478,15 +478,16 @@ bool download_cover_slot_once(int idx, const char* url)
         return false;
     }
 
-    NetworkClientSecure client;
-    client.setInsecure();
-    client.setTimeout(20000);
+    // 封面 CDN 的 TLS：用静态客户端，避免堆上 new/delete 与 HTTPClient 生命周期打架导致空跳转
+    static WiFiClientSecure cover_tls;
+    cover_tls.setInsecure();
+    cover_tls.setTimeout(20000);
     HTTPClient http;
     http.setConnectTimeout(12000);
     http.setTimeout(20000);
     http.setReuse(false);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    if (!http.begin(client, url)) {
+    if (!http.begin(cover_tls, url)) {
         Serial.printf("cover[%d] begin fail\n", idx);
         return false;
     }
@@ -506,10 +507,16 @@ bool download_cover_slot_once(int idx, const char* url)
     size_t got = 0;
     const uint32_t start = millis();
     const size_t cap = (len > 0) ? static_cast<size_t>(len) : kCoverCap;
-    while ((http.connected() || stream->available()) && got < cap) {
+    while (got < cap) {
+        if (!http.connected() && !stream->available()) {
+            break;
+        }
         const size_t avail = stream->available();
         if (avail) {
             const size_t n = stream->readBytes(slot.jpg + got, avail);
+            if (n == 0) {
+                break;
+            }
             got += n;
         } else {
             if (len > 0 && got >= static_cast<size_t>(len)) {
