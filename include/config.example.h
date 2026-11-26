@@ -16,3 +16,6 @@
 // 例：https://<user>.github.io/tab5-grok-board/weread_day.json
 #define WEREAD_DAY_URL "https://witdcl.github.io/tab5-grok-board/weread_day.json"
 #define WEREAD_BOOK_URL "https://witdcl.github.io/tab5-grok-board/weread_book.json"
+
+// 电源节奏（固件内置，无需改这里）：每日 08:00–12:00、14:00–20:00 亮屏，
+// 其余时段 RTC 休眠到下一开机点。开机后约 90 秒宽限再执行休眠。

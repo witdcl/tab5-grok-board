@@ -1,5 +1,7 @@
 #include "weread_book.h"
 
+#include "power_schedule.h"
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
@@ -70,25 +72,65 @@ void copy_field(char* dst, size_t n, JsonVariantConst v)
     dst[n - 1] = '\0';
 }
 
+bool wall_clock_ok()
+{
+    return time(nullptr) >= 1700000000LL;
+}
+
+void apply_epoch(time_t epoch, const char* source)
+{
+    if (epoch < 1700000000LL) {
+        return;
+    }
+    // 已有可信时钟时不覆盖（避免 Pages 静态 JSON 里陈旧 server_now 把时间打回去）
+    if (wall_clock_ok() && source != nullptr && std::strcmp(source, "server_now") == 0) {
+        return;
+    }
+    setenv("TZ", "CST-8", 1);
+    tzset();
+    timeval tv{};
+    tv.tv_sec = epoch;
+    tv.tv_usec = 0;
+    settimeofday(&tv, nullptr);
+    struct tm local {};
+    localtime_r(&epoch, &local);
+    Serial.printf("time from %s %02d:%02d:%02d\n", source ? source : "?", local.tm_hour, local.tm_min,
+                  local.tm_sec);
+}
+
 void apply_server_now(JsonVariantConst doc)
 {
     if (!(doc["server_now"].is<long long>() || doc["server_now"].is<long>() ||
           doc["server_now"].is<unsigned long>() || doc["server_now"].is<int>())) {
         return;
     }
-    const time_t server_now = static_cast<time_t>(doc["server_now"].as<long long>());
-    if (server_now < 1700000000) {
-        return;
+    apply_epoch(static_cast<time_t>(doc["server_now"].as<long long>()), "server_now");
+}
+
+// RFC 1123：Date: Wed, 26 Nov 2026 16:40:00 GMT
+bool apply_http_date(const char* date_hdr)
+{
+    if (date_hdr == nullptr || date_hdr[0] == '\0' || wall_clock_ok()) {
+        return false;
     }
+    struct tm gmt {};
+    // %z 在部分 newlib 上不稳；按 GMT 解析后再当 UTC 秒
+    if (strptime(date_hdr, "%a, %d %b %Y %H:%M:%S", &gmt) == nullptr) {
+        return false;
+    }
+    gmt.tm_isdst = 0;
+    // newlib 未必有 timegm：临时切 UTC 用 mktime
+    setenv("TZ", "GMT0", 1);
+    tzset();
+    const time_t epoch = mktime(&gmt);
     setenv("TZ", "CST-8", 1);
     tzset();
-    timeval tv{};
-    tv.tv_sec = server_now;
-    tv.tv_usec = 0;
-    settimeofday(&tv, nullptr);
-    struct tm local {};
-    localtime_r(&server_now, &local);
-    Serial.printf("time from server_now %02d:%02d:%02d\n", local.tm_hour, local.tm_min, local.tm_sec);
+    if (epoch < 1700000000LL) {
+        return false;
+    }
+    apply_epoch(epoch, "HTTP Date");
+    power_schedule_mark_network_time();
+    return true;
 }
 
 void fill_book_from_json(WereadBook& out, JsonVariantConst doc)
@@ -164,6 +206,8 @@ bool http_get_body(const char* url, String& body, char* err, size_t err_n)
     }
     // CDN 常下发 gzip；设备端不解压会导致「有正文但 JSON 解析失败」
     http.addHeader("Accept-Encoding", "identity");
+    static const char* kHdrs[] = {"Date"};
+    http.collectHeaders(kHdrs, 1);
 
     const int code = http.GET();
     Serial.printf("weread HTTP %d\n", code);
@@ -173,6 +217,9 @@ bool http_get_body(const char* url, String& body, char* err, size_t err_n)
         tls.stop();
         return false;
     }
+
+    // Pages 静态 JSON 无实时 server_now；用响应 Date 头作 NTP 备份校时
+    apply_http_date(http.header("Date").c_str());
 
     // 必须用 getString()：CDN 常是 chunked，裸读流会把 "27ec\\r\\n" 这种块头读进正文
     body = http.getString();

@@ -2,6 +2,7 @@
 
 #include "app_config.h"
 #include "keyboard_input.h"
+#include "power_schedule.h"
 #include "weread_book.h"
 #include "weread_ui.h"
 #include "wifi_link.h"
@@ -114,6 +115,7 @@ void setup()
 
     weread_ui_begin();
     Serial.println("Tab5 WeRead board (day playlist)");
+    power_schedule_begin();
 
     keyboard_start();
     wifi_link_start();
@@ -156,6 +158,9 @@ void loop()
     }
 
     (void)wifi_link_poll();
+
+    // 亮屏窗外会 RTC 休眠，本调用可能不返回
+    power_schedule_poll();
 
     const uint32_t period = day.ok ? kFetchPeriodMs : kRetryFailMs;
     const bool due = !ever_fetched || (millis() - last_fetch_ms >= period);
