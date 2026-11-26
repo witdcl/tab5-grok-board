@@ -2,6 +2,12 @@
   "playlist_size": 5,
   "daily_hour": 7,
   "timezone": "Asia/Shanghai",
-  "history_days": 7,
-  "note": "偏好由 Actions 读取；改完点「保存到仓库」或提交本文件后下次生成生效。"
+  "lanes": [
+    "fiction_cn",
+    "fiction_world",
+    "essay",
+    "science",
+    "history"
+  ],
+  "note": "勾选的类型会尽量各出一本；历史类最多 1 本。改完保存后再点立即重生。"
 }

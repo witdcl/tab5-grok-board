@@ -66,7 +66,8 @@ def load_settings() -> dict:
 _SETTINGS = load_settings()
 DAILY_HOUR = int(_SETTINGS.get("daily_hour") or 7)
 PLAYLIST_SIZE = max(1, min(5, int(_SETTINGS.get("playlist_size") or 5)))
-HISTORY_DAYS = max(1, int(_SETTINGS.get("history_days") or 7))
+# 近期已荐书 ID 去重窗口（与「历史类」题材无关；设置页不暴露）
+HISTORY_DAYS = max(1, int(_SETTINGS.get("avoid_recent_days") or _SETTINGS.get("history_days") or 7))
 
 # 荐书板只要正经可读之书：挡期刊/童书等非阅读向，以及快阅读包装。
 BLOCKED_CATEGORIES = {
@@ -1115,13 +1116,26 @@ def build_document(
     return doc
 
 
+def active_lanes(size: int = PLAYLIST_SIZE) -> list[dict]:
+    """按 settings.lanes 勾选类型组片单；未配置则用全部赛道。"""
+    wanted = _SETTINGS.get("lanes")
+    if isinstance(wanted, list) and wanted:
+        by_id = {ln["id"]: ln for ln in PLAYLIST_LANES}
+        lanes = [by_id[i] for i in wanted if i in by_id]
+    else:
+        lanes = list(PLAYLIST_LANES)
+    if not lanes:
+        lanes = list(PLAYLIST_LANES)
+    return lanes[: max(1, min(size, len(lanes)))]
+
+
 def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
-    """每天一次：按五条差异化赛道选出 size 本（历史最多 1）。"""
+    """每天一次：按勾选类型赛道各选一本（历史类最多 1）。"""
     books: list[dict] = []
     picked: set[str] = set()
     used_families: list[str] = []
-    lanes = list(PLAYLIST_LANES[:size])
-    # 打乱非历史赛道顺序，历史轨固定为最后一档之一，避免前几本全挤进历史
+    lanes = active_lanes(size)
+    # 打乱非历史赛道顺序，历史轨靠后，避免前几本全挤进历史类
     hist_lanes = [ln for ln in lanes if ln["family"] == "history"]
     other_lanes = [ln for ln in lanes if ln["family"] != "history"]
     random.shuffle(other_lanes)

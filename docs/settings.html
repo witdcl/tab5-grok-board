@@ -110,6 +110,26 @@
       font-size: 0.92em;
       color: #d2c4a8;
     }
+    .lane-list {
+      display: grid;
+      gap: 8px;
+    }
+    .lane-list label.lane {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      background: #100e0c;
+      color: var(--paper);
+      letter-spacing: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      cursor: pointer;
+    }
+    .lane-list label.lane input { margin-top: 3px; width: auto; }
+    .lane-list .lane small { display: block; color: #6e6558; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -121,25 +141,19 @@
     </p>
 
     <section>
-      <h2>生成偏好</h2>
-      <div class="row">
+      <h2>类型多样化</h2>
+      <p class="hint" style="margin-top:0">
+        每天按勾选类型各找一本，保证类型不一样；「历史非虚构」整天最多 1 本。
+      </p>
+      <div id="lane-list" class="lane-list"></div>
+      <div class="row" style="margin-top:14px">
         <div>
           <label for="playlist_size">片单本数</label>
           <input id="playlist_size" type="number" min="1" max="5" step="1" />
         </div>
         <div>
-          <label for="history_days">历史去重天数</label>
-          <input id="history_days" type="number" min="1" max="30" step="1" />
-        </div>
-      </div>
-      <div class="row">
-        <div>
           <label for="daily_hour">每日生成时（北京时间）</label>
           <input id="daily_hour" type="number" min="0" max="23" step="1" />
-        </div>
-        <div>
-          <label for="timezone">时区</label>
-          <input id="timezone" type="text" readonly />
         </div>
       </div>
       <label for="note">备注</label>
@@ -148,7 +162,7 @@
         <button type="button" class="primary" id="btn-save">保存到仓库</button>
         <button type="button" id="btn-reload">重新加载</button>
       </div>
-      <p class="hint">保存需要下方的 GitHub Token（contents:write）。也可直接在仓库里改 <code>docs/settings.json</code>。</p>
+      <p class="hint">保存需要下方的 GitHub Token（contents:write）。也可直接改 <code>docs/settings.json</code>。</p>
       <div class="msg" id="settings-msg"></div>
     </section>
 
@@ -190,6 +204,13 @@
   <script>
     const LS_TOKEN = "tab5_weread_gh_token";
     const LS_REPO = "tab5_weread_gh_repo";
+    const LANES = [
+      { id: "fiction_cn", label: "中文小说 / 文学", hint: "当代或经典中文长篇" },
+      { id: "fiction_world", label: "翻译文学", hint: "外国文学 / 翻译小说" },
+      { id: "essay", label: "随笔 / 思想", hint: "随笔、思想、文化评论" },
+      { id: "science", label: "科学 / 社会 / 艺术", hint: "科学、社会观察、艺术或自然" },
+      { id: "history", label: "历史非虚构（最多 1）", hint: "通史、断代、人物传记" },
+    ];
     let siteConfig = { repo: "", workflow: "daily.yml" };
 
     function $(id) { return document.getElementById(id); }
@@ -214,19 +235,34 @@
         ? `https://github.com/${repo}/actions/workflows/${siteConfig.workflow || "daily.yml"}`
         : "#";
     }
+    function renderLanes(selected) {
+      const box = $("lane-list");
+      const set = new Set(selected && selected.length ? selected : LANES.map((l) => l.id));
+      box.innerHTML = "";
+      LANES.forEach((lane) => {
+        const lab = document.createElement("label");
+        lab.className = "lane";
+        lab.innerHTML = `<input type="checkbox" value="${lane.id}" ${set.has(lane.id) ? "checked" : ""} />
+          <span>${lane.label}<small>${lane.hint}</small></span>`;
+        box.appendChild(lab);
+      });
+    }
+    function selectedLanes() {
+      return [...document.querySelectorAll("#lane-list input:checked")].map((el) => el.value);
+    }
     function fillSettings(s) {
       $("playlist_size").value = s.playlist_size ?? 5;
-      $("history_days").value = s.history_days ?? 7;
       $("daily_hour").value = s.daily_hour ?? 7;
-      $("timezone").value = s.timezone || "Asia/Shanghai";
       $("note").value = s.note || "";
+      renderLanes(s.lanes);
     }
     function readSettingsForm() {
+      const lanes = selectedLanes();
       return {
         playlist_size: Number($("playlist_size").value) || 5,
-        history_days: Number($("history_days").value) || 7,
         daily_hour: Number($("daily_hour").value) || 7,
-        timezone: $("timezone").value || "Asia/Shanghai",
+        timezone: "Asia/Shanghai",
+        lanes: lanes.length ? lanes : LANES.map((l) => l.id),
         note: $("note").value || "",
       };
     }
