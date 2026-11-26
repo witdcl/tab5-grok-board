@@ -425,7 +425,7 @@ PLAYLIST_LANES = (
         "id": "history",
         "label": "史传纪实",
         "family": "history",
-        "hint": "历史非虚构或人物传记，本日片单仅此一本史传向",
+        "hint": "历史非虚构或人物传记",
         "seeds": ["历史 非虚构", "人物传记 经典", "微观史"],
     },
 )
@@ -1116,34 +1116,43 @@ def build_document(
     return doc
 
 
-def active_lanes(size: int = PLAYLIST_SIZE) -> list[dict]:
-    """按 settings.lanes 勾选类型组片单；未配置则用全部赛道。"""
+def selected_lanes() -> list[dict]:
+    """settings.lanes 勾选的类型；未配置则用全部。"""
     wanted = _SETTINGS.get("lanes")
     if isinstance(wanted, list) and wanted:
         by_id = {ln["id"]: ln for ln in PLAYLIST_LANES}
         lanes = [by_id[i] for i in wanted if i in by_id]
     else:
         lanes = list(PLAYLIST_LANES)
-    if not lanes:
-        lanes = list(PLAYLIST_LANES)
-    return lanes[: max(1, min(size, len(lanes)))]
+    return lanes or list(PLAYLIST_LANES)
+
+
+def plan_lane_slots(size: int) -> list[dict]:
+    """勾选类型数 < 本数：类型可重复填满；≥ 本数：打乱后各出一本（多选的先不进片单）。"""
+    lanes = selected_lanes()
+    size = max(1, min(5, int(size) or PLAYLIST_SIZE))
+    pool = list(lanes)
+    random.shuffle(pool)
+    if len(pool) >= size:
+        return pool[:size]
+    ordered: list[dict] = []
+    i = 0
+    while len(ordered) < size:
+        ordered.append(pool[i % len(pool)])
+        i += 1
+    return ordered
 
 
 def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
-    """每天一次：按勾选类型赛道各选一本（历史类最多 1）。"""
+    """按勾选类型排片：少选可重复，多选每类至多一本。"""
     books: list[dict] = []
     picked: set[str] = set()
     used_families: list[str] = []
-    lanes = active_lanes(size)
-    # 打乱非历史赛道顺序，历史轨靠后，避免前几本全挤进历史类
-    hist_lanes = [ln for ln in lanes if ln["family"] == "history"]
-    other_lanes = [ln for ln in lanes if ln["family"] != "history"]
-    random.shuffle(other_lanes)
-    ordered = other_lanes + hist_lanes
+    used_lanes: list[str] = []
+    ordered = plan_lane_slots(size)
     for i, lane in enumerate(ordered):
         print(f"--- playlist {i + 1}/{size} lane={lane['id']} ({lane['label']}) ---")
-        # 硬约束：非历史赛道一律避开 history；历史赛道整天只有一档
-        # 不再把已用 fiction/essay 等列入硬避让，否则「中文小说+翻译文学」会自相残杀
+        # 仍按本格赛道避让明显跑偏的题材；不再做「史传全天最多 1」
         avoid: list[str] = []
         if lane["family"] != "history":
             avoid.append("history")
@@ -1153,7 +1162,7 @@ def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
         if not bid or bid in picked:
             raise RuntimeError(f"片单第 {i + 1} 本无效或重复")
         if lane["family"] != "history" and fam == "history":
-            print(f"warn: lane={lane['id']} 仍落到历史，重试一次…")
+            print(f"warn: lane={lane['id']} 仍落到史传，重试一次…")
             doc = build_document(
                 exclude_ids=picked | {bid},
                 lane=lane,
@@ -1161,14 +1170,15 @@ def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
             )
             bid = str(doc.get("bookId") or "")
             fam = doc.get("family") or book_family(doc)
-        if fam == "history" and "history" in used_families:
-            raise RuntimeError("片单历史向超过 1 本，中止")
+            if not bid or bid in picked:
+                raise RuntimeError(f"片单第 {i + 1} 本重试后仍无效")
         doc["slot"] = slot_label(i + 1, size)
         doc["family"] = fam
         books.append(doc)
         picked.add(bid)
         if fam not in used_families:
             used_families.append(fam)
+        used_lanes.append(lane["id"])
         print(f"picked family={fam} title={doc.get('title')}")
     today = now_bj().strftime("%Y-%m-%d")
     return {
@@ -1177,6 +1187,7 @@ def build_day_playlist(size: int = PLAYLIST_SIZE) -> dict:
         "count": len(books),
         "books": books,
         "diversity": used_families,
+        "lanes": used_lanes,
     }
 
 
