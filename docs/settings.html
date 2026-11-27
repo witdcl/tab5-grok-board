@@ -7,38 +7,97 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("tab5_weread_theme");
+        if (t !== "light" && t !== "dark") t = "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
   <style>
     :root {
       --font: "Noto Sans SC", "PingFang SC", sans-serif;
       --bg: #070605;
+      --glow: #2e261c;
       --paper: #efe4d0;
       --brass: #c4a15a;
       --muted: #9a9082;
       --line: #3a342c;
+      --panel: rgba(28, 24, 20, 0.55);
+      --field: #100e0c;
+      --chip-bg: #161310;
+      --chip-line: #2a2620;
+      --hint: #6e6558;
+      --code: #d2c4a8;
+      --hover: #e0c888;
+      --empty: #5a5348;
+      --scheme: dark;
+    }
+    html[data-theme="light"] {
+      --bg: #f2ebe1;
+      --glow: #e2d4c0;
+      --paper: #2a241c;
+      --brass: #9a7a3a;
+      --muted: #6e6558;
+      --line: #cfc3b0;
+      --panel: rgba(255, 250, 243, 0.86);
+      --field: #fffaf3;
+      --chip-bg: #f7f0e6;
+      --chip-line: #d9cdb8;
+      --hint: #7a7164;
+      --code: #5c4f3a;
+      --hover: #8a7040;
+      --empty: #9a9082;
+      --scheme: light;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
       background:
-        radial-gradient(ellipse 70% 45% at 50% -8%, #2e261c 0%, transparent 55%),
+        radial-gradient(ellipse 70% 45% at 50% -8%, var(--glow) 0%, transparent 55%),
         var(--bg);
       color: var(--paper);
       font-family: var(--font);
       padding: 28px 18px 64px;
+      transition: background .25s ease, color .25s ease;
     }
     .wrap { max-width: 920px; margin: 0 auto; }
+    .top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
     a { color: var(--brass); text-decoration: none; }
-    a:hover { color: #e0c888; }
+    a:hover { color: var(--hover); }
+    .theme-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--field);
+      color: var(--brass);
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .theme-btn:hover { color: var(--hover); }
     h1 {
-      margin: 0 0 8px;
+      margin: 0;
       font-size: 14px;
       font-weight: 500;
       letter-spacing: 0.4em;
       color: var(--muted);
     }
     .sub {
-      color: #6e6558;
+      color: var(--hint);
       font-size: 13px;
       line-height: 1.7;
       margin: 0 0 28px;
@@ -47,7 +106,7 @@
       border: 1px solid var(--line);
       padding: 22px 22px 18px;
       margin-bottom: 18px;
-      background: rgba(28, 24, 20, 0.55);
+      background: var(--panel);
     }
     h2 {
       margin: 0 0 10px;
@@ -65,7 +124,7 @@
     }
     input, textarea {
       width: 100%;
-      background: #100e0c;
+      background: var(--field);
       border: 1px solid var(--line);
       color: var(--paper);
       font-family: inherit;
@@ -95,7 +154,7 @@
       margin: 0 0 14px;
       font-size: 12px;
       line-height: 1.7;
-      color: #6e6558;
+      color: var(--hint);
     }
     .msg {
       margin-top: 12px;
@@ -103,12 +162,12 @@
       line-height: 1.6;
       min-height: 1.4em;
     }
-    .msg.ok { color: #8fbf7a; }
+    .msg.ok { color: #5f9a4a; }
     .msg.err { color: #c47a5a; }
     code {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.92em;
-      color: #d2c4a8;
+      color: var(--code);
     }
     .boards {
       display: grid;
@@ -118,7 +177,7 @@
     }
     .board {
       border: 1px solid var(--line);
-      background: #100e0c;
+      background: var(--field);
       min-height: 280px;
       padding: 10px;
     }
@@ -136,15 +195,15 @@
       gap: 8px;
       padding: 9px 10px;
       margin-bottom: 6px;
-      border: 1px solid #2a2620;
-      background: #161310;
+      border: 1px solid var(--chip-line);
+      background: var(--chip-bg);
       cursor: grab;
       user-select: none;
     }
     .chip:active { cursor: grabbing; }
     .chip.dragging { opacity: 0.45; }
     .chip .handle {
-      color: #5a5348;
+      color: var(--empty);
       letter-spacing: 0;
       font-size: 14px;
       line-height: 1;
@@ -153,7 +212,7 @@
     .chip .name { font-size: 13px; color: var(--paper); }
     .chip .desc {
       font-size: 11px;
-      color: #6e6558;
+      color: var(--hint);
       margin-top: 2px;
       white-space: nowrap;
       overflow: hidden;
@@ -168,7 +227,7 @@
     }
     #ban-list .chip .rank { display: none; }
     .empty {
-      color: #5a5348;
+      color: var(--empty);
       font-size: 12px;
       padding: 18px 8px;
       text-align: center;
@@ -196,10 +255,10 @@
       align-items: end;
       margin-bottom: 10px;
     }
-    .seg-row input[type="time"] { color-scheme: dark; }
+    .seg-row input[type="time"] { color-scheme: var(--scheme); }
     .seg-row .rm {
-      border-color: #6e6558;
-      color: #9a9082;
+      border-color: var(--hint);
+      color: var(--muted);
       padding: 10px 12px;
       letter-spacing: 0.08em;
     }
@@ -207,13 +266,16 @@
       margin-top: 8px;
       font-size: 12px;
       line-height: 1.7;
-      color: #6e6558;
+      color: var(--hint);
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>设置</h1>
+    <div class="top-row">
+      <h1>设置</h1>
+      <button type="button" class="theme-btn" id="theme-btn" aria-label="切换日间夜间">日间</button>
+    </div>
     <p class="sub">
       <a href="./">← 返回预览</a>
       · 类型对齐微信读书常见类目。左边是选书，右边是黑名单。
@@ -719,6 +781,20 @@
       }
     });
 
+    function syncThemeBtn() {
+      const t = document.documentElement.getAttribute("data-theme") || "dark";
+      const btn = $("theme-btn");
+      btn.textContent = t === "light" ? "夜间" : "日间";
+      btn.setAttribute("aria-label", t === "light" ? "切换到夜间模式" : "切换到日间模式");
+    }
+    $("theme-btn").addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = cur === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("tab5_weread_theme", next); } catch (_) {}
+      syncThemeBtn();
+    });
+    syncThemeBtn();
     loadAll();
   </script>
 </body>
