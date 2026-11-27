@@ -43,6 +43,10 @@
     "design"
   ],
   "note": "选书类型可拖拽排序：越靠前略优先，最后仍可能中选。黑名单类型一定不会出现。",
+  "display": {
+    "page_seconds": 30,
+    "preview_page_seconds": 7
+  },
   "power": {
     "enabled": true,
     "weekdays": [

@@ -1,5 +1,6 @@
 #include "weread_ui.h"
 
+#include "power_schedule.h"
 #include "wifi_link.h"
 
 #include <HTTPClient.h>
@@ -30,7 +31,6 @@ constexpr uint16_t kBodySoft = 0x632C;
 constexpr uint16_t kQuoteDim = 0x8C71;   // 金句非重点
 constexpr uint16_t kQuoteHit = 0xF71C;   // 金句重点（亮）
 
-constexpr uint32_t kPageMs = 30000;  // 每屏 30 秒
 // 先压暗旧页 → 暗中换帧 → 再亮起新页，避免滑入硬边
 constexpr uint32_t kFadeOutMs = 480;
 constexpr uint32_t kFadeInMs = 820;
@@ -1042,7 +1042,7 @@ void weread_ui_tick()
         return;
     }
     retry_missing_covers_tick();
-    if (millis() - g_page_since >= kPageMs) {
+    if (millis() - g_page_since >= board_settings_page_ms()) {
         weread_ui_next();
     }
 }

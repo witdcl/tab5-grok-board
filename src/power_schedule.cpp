@@ -39,7 +39,12 @@ struct PowerConfig {
     int seg_count = 2;
 };
 
+constexpr int kDefaultPageSec = 30;
+constexpr int kMinPageSec = 5;
+constexpr int kMaxPageSec = 120;
+
 PowerConfig cfg {};
+int page_seconds = kDefaultPageSec;
 bool ntp_started = false;
 bool network_time_ok = false;
 bool clock_latched = false;
@@ -228,7 +233,25 @@ bool validate_and_set(PowerConfig& out, JsonVariantConst power)
 void apply_defaults()
 {
     cfg = PowerConfig {};
+    page_seconds = kDefaultPageSec;
     settings_loaded = false;
+}
+
+void apply_display(JsonVariantConst display)
+{
+    if (!display["page_seconds"].is<int>() && !display["page_seconds"].is<long>() &&
+        !display["page_seconds"].is<float>()) {
+        return;
+    }
+    int sec = display["page_seconds"].as<int>();
+    if (sec < kMinPageSec) {
+        sec = kMinPageSec;
+    }
+    if (sec > kMaxPageSec) {
+        sec = kMaxPageSec;
+    }
+    page_seconds = sec;
+    Serial.printf("power schedule: page_seconds=%d\n", page_seconds);
 }
 
 const char* settings_url()
@@ -312,26 +335,35 @@ void reload_settings_if_due(bool force)
         Serial.println("power schedule: settings JSON fail");
         return;
     }
+    if (doc["display"].is<JsonObject>()) {
+        apply_display(doc["display"]);
+    }
+
     PowerConfig next = cfg;
     if (doc["power"].is<JsonObject>()) {
         if (!validate_and_set(next, doc["power"])) {
-            Serial.println("power schedule: settings rejected (limits)");
+            Serial.println("power schedule: power block rejected (limits)");
             if (!settings_loaded) {
-                apply_defaults();
+                // 保留已解析的 display，只回退 power
+                PowerConfig fallback {};
+                cfg = fallback;
+                settings_loaded = true;
             }
             return;
         }
-    } else if (!settings_loaded) {
-        apply_defaults();
+        cfg = next;
         settings_loaded = true;
-        Serial.println("power schedule: no power block → defaults");
-        return;
-    } else {
+        Serial.printf("power schedule: loaded segs=%d enabled=%d page=%ds\n", cfg.seg_count,
+                      cfg.enabled ? 1 : 0, page_seconds);
         return;
     }
-    cfg = next;
-    settings_loaded = true;
-    Serial.printf("power schedule: loaded segs=%d enabled=%d\n", cfg.seg_count, cfg.enabled ? 1 : 0);
+
+    if (!settings_loaded) {
+        PowerConfig fallback {};
+        cfg = fallback;
+        settings_loaded = true;
+        Serial.println("power schedule: no power block → defaults");
+    }
 }
 
 bool in_on_window(int iso, int minutes)
@@ -456,6 +488,18 @@ void power_schedule_mark_network_time()
     }
     network_time_ok = true;
     Serial.println("power schedule: network time accepted");
+}
+
+uint32_t board_settings_page_ms()
+{
+    int sec = page_seconds;
+    if (sec < kMinPageSec) {
+        sec = kMinPageSec;
+    }
+    if (sec > kMaxPageSec) {
+        sec = kMaxPageSec;
+    }
+    return static_cast<uint32_t>(sec) * 1000U;
 }
 
 void power_schedule_poll()

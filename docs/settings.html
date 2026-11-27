@@ -268,6 +268,32 @@
       line-height: 1.7;
       color: var(--hint);
     }
+    .save-bar {
+      position: sticky;
+      bottom: 12px;
+      z-index: 20;
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 28px rgba(0,0,0,.18);
+    }
+    .save-bar .status {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--hint);
+      min-height: 1.4em;
+    }
+    .save-bar .status.ok { color: #5f9a4a; }
+    .save-bar .status.err { color: #c47a5a; }
+    .save-bar .status.pending { color: var(--brass); }
+    body { padding-bottom: 88px; }
   </style>
 </head>
 <body>
@@ -310,12 +336,22 @@
       </div>
       <label for="note">给自己的备注</label>
       <textarea id="note" placeholder="可选"></textarea>
-      <div class="actions">
-        <button type="button" class="primary" id="btn-save">保存设置</button>
-        <button type="button" id="btn-reload">重新加载</button>
+      <p class="hint" style="margin-top:12px">改完会自动保存到仓库（需先在下方填写令牌）。</p>
+    </section>
+
+    <section>
+      <h2>换屏与显示</h2>
+      <p class="hint">设备三屏自动轮播间隔；网页预览可单独设得更快方便点选。</p>
+      <div class="row">
+        <div>
+          <label for="page_seconds">设备每屏停留（秒）</label>
+          <input id="page_seconds" type="number" min="5" max="120" step="1" />
+        </div>
+        <div>
+          <label for="preview_page_seconds">网页预览每屏（秒）</label>
+          <input id="preview_page_seconds" type="number" min="3" max="60" step="1" />
+        </div>
       </div>
-      <p class="hint" style="margin-top:12px">保存要用下面的访问令牌。</p>
-      <div class="msg" id="settings-msg"></div>
     </section>
 
     <section>
@@ -376,6 +412,14 @@
       <p><code id="device-url">./weread_day.json</code></p>
       <p><code id="settings-url">./settings.json</code></p>
     </section>
+
+    <div class="save-bar" id="save-bar">
+      <div class="status" id="save-status">改动后会自动保存</div>
+      <div class="actions" style="margin:0">
+        <button type="button" id="btn-reload">重新加载</button>
+        <button type="button" class="primary" id="btn-save-now">立即保存</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -397,6 +441,10 @@
       { start: "08:00", end: "12:00" },
       { start: "14:00", end: "20:00" },
     ];
+    let saveTimer = null;
+    let saveInFlight = false;
+    let dirty = false;
+    let suppressAutosave = false;
 
     function $(id) { return document.getElementById(id); }
     function setMsg(id, text, ok) {
@@ -487,6 +535,7 @@
         }
       }
       renderLists();
+      markDirty();
     }
 
     function bindBoard(board) {
@@ -579,6 +628,7 @@
           if (powerWeekdays.has(iso)) powerWeekdays.delete(iso);
           else powerWeekdays.add(iso);
           renderWeekdays();
+          markDirty();
         });
         box.appendChild(el);
       });
@@ -609,6 +659,7 @@
           powerSegments[i][k] = inp.value;
           const v = validatePower();
           setMsg("power-msg", v.ok ? "" : v.msg, v.ok ? null : false);
+          markDirty();
         });
       });
       box.querySelectorAll("[data-rm]").forEach((btn) => {
@@ -620,6 +671,7 @@
           }
           powerSegments.splice(i, 1);
           renderSegments();
+          markDirty();
         });
       });
       $("power-limits-hint").textContent =
@@ -643,18 +695,31 @@
       setMsg("power-msg", "");
     }
     function fillSettings(s) {
+      suppressAutosave = true;
       $("playlist_size").value = s.playlist_size ?? 5;
       $("daily_hour").value = s.daily_hour ?? 7;
       $("note").value = s.note || "";
+      const d = (s && s.display) || {};
+      $("page_seconds").value = d.page_seconds ?? 30;
+      $("preview_page_seconds").value = d.preview_page_seconds ?? 7;
       normalizeLists(s || {});
       renderLists();
       fillPower(s || {});
+      dirty = false;
+      suppressAutosave = false;
+      setSaveStatus("已与仓库同步", "ok");
     }
     function readSettingsForm() {
       const weekdays = [...powerWeekdays].sort((a, b) => a - b);
       const segments = powerSegments
         .map((s) => ({ start: s.start, end: s.end }))
         .sort((a, b) => toMin(a.start) - toMin(b.start));
+      let pageSec = Number($("page_seconds").value);
+      let previewSec = Number($("preview_page_seconds").value);
+      if (!Number.isFinite(pageSec)) pageSec = 30;
+      if (!Number.isFinite(previewSec)) previewSec = 7;
+      pageSec = Math.min(120, Math.max(5, Math.round(pageSec)));
+      previewSec = Math.min(60, Math.max(3, Math.round(previewSec)));
       return {
         playlist_size: Number($("playlist_size").value) || 5,
         daily_hour: Number($("daily_hour").value) || 7,
@@ -662,6 +727,10 @@
         lanes: pickIds.slice(),
         blacklist: banIds.slice(),
         note: $("note").value || "",
+        display: {
+          page_seconds: pageSec,
+          preview_page_seconds: previewSec,
+        },
         power: {
           enabled: !!$("power_enabled").checked,
           weekdays,
@@ -669,6 +738,45 @@
           limits: { ...POWER_LIMITS },
         },
       };
+    }
+    function setSaveStatus(text, kind) {
+      const el = $("save-status");
+      el.textContent = text || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    function markDirty() {
+      if (suppressAutosave) return;
+      dirty = true;
+      setSaveStatus("有未保存更改，稍后自动保存…", "pending");
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { saveSettings(false); }, 1200);
+    }
+    async function saveSettings(manual) {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      if (saveInFlight) return;
+      setMsg("power-msg", "");
+      try {
+        if (!pickIds.length) throw new Error("选书类型不能为空");
+        const pv = validatePower();
+        if (!pv.ok) throw new Error(pv.msg);
+        if (!$("token").value.trim() || !currentRepo()) {
+          setSaveStatus(manual ? "请先填写仓库与令牌" : "已记下更改；填写令牌后会自动保存", "err");
+          return;
+        }
+        saveInFlight = true;
+        setSaveStatus("保存中…", "pending");
+        await putFile("docs/settings.json", readSettingsForm(), "chore: update weread board settings");
+        dirty = false;
+        setSaveStatus("已自动保存。设备约 30 分钟内或重启后生效。", "ok");
+      } catch (e) {
+        setSaveStatus(String(e.message || e), "err");
+        setMsg("power-msg", String(e.message || e), false);
+      } finally {
+        saveInFlight = false;
+      }
     }
 
     async function loadAll() {
@@ -723,11 +831,13 @@
     bindBoard($("pick-board"));
     bindBoard($("ban-board"));
     $("btn-reload").addEventListener("click", () => loadAll());
+    $("btn-save-now").addEventListener("click", () => saveSettings(true));
     $("btn-token-save").addEventListener("click", () => {
       localStorage.setItem(LS_TOKEN, $("token").value.trim());
       localStorage.setItem(LS_REPO, $("repo").value.trim());
       refreshDeviceUrl();
       setMsg("token-msg", "已记住。", true);
+      if (dirty) saveSettings(true);
     });
     $("btn-token-clear").addEventListener("click", () => {
       localStorage.removeItem(LS_TOKEN);
@@ -736,36 +846,31 @@
       setMsg("token-msg", "已清除。", true);
     });
     $("repo").addEventListener("input", refreshDeviceUrl);
+    ["playlist_size", "daily_hour", "note", "page_seconds", "preview_page_seconds", "power_enabled"].forEach((id) => {
+      const el = $(id);
+      el.addEventListener("change", markDirty);
+      el.addEventListener("input", markDirty);
+    });
     $("btn-seg-add").addEventListener("click", () => {
       if (powerSegments.length >= POWER_LIMITS.max_segments) return;
       powerSegments.push({ start: "18:00", end: "20:00" });
       renderSegments();
+      markDirty();
     });
     $("btn-wd-work").addEventListener("click", () => {
       powerWeekdays = new Set([1, 2, 3, 4, 5]);
       renderWeekdays();
+      markDirty();
     });
     $("btn-wd-all").addEventListener("click", () => {
       powerWeekdays = new Set([1, 2, 3, 4, 5, 6, 7]);
       renderWeekdays();
+      markDirty();
     });
     $("btn-wd-clear").addEventListener("click", () => {
       powerWeekdays = new Set();
       renderWeekdays();
-    });
-    $("btn-save").addEventListener("click", async () => {
-      setMsg("settings-msg", "保存中…");
-      setMsg("power-msg", "");
-      try {
-        if (!pickIds.length) throw new Error("选书类型不能为空");
-        const pv = validatePower();
-        if (!pv.ok) throw new Error(pv.msg);
-        await putFile("docs/settings.json", readSettingsForm(), "chore: update weread board settings");
-        setMsg("settings-msg", "设置已保存（含亮屏时段）。设备约 30 分钟内或重启后生效。", true);
-      } catch (e) {
-        setMsg("settings-msg", String(e.message || e), false);
-        setMsg("power-msg", String(e.message || e), false);
-      }
+      markDirty();
     });
     $("btn-run").addEventListener("click", async () => {
       setMsg("run-msg", "触发中…");

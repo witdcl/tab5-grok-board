@@ -443,7 +443,7 @@
   </div>
 
   <script>
-    const DWELL = 7000;
+    let DWELL = 7000;
     let day = null;
     let bookIdx = 0;
     let page = 0;
@@ -524,6 +524,18 @@
         tabs.appendChild(btn);
       });
     }
+    async function loadDisplayPrefs() {
+      try {
+        const res = await fetch(`./settings.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const s = await res.json();
+        const sec = Number(s && s.display && s.display.preview_page_seconds);
+        if (Number.isFinite(sec) && sec >= 3 && sec <= 60) {
+          DWELL = Math.round(sec) * 1000;
+          restart();
+        }
+      } catch (_) { /* keep default */ }
+    }
     async function loadDay() {
       const state = document.getElementById("load-state");
       try {
@@ -572,6 +584,7 @@
     syncThemeBtn();
     clock();
     setInterval(clock, 15000);
+    loadDisplayPrefs();
     loadDay();
   </script>
 </body>
