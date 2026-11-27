@@ -173,6 +173,42 @@
       padding: 18px 8px;
       text-align: center;
     }
+    .wdays { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+    .wday {
+      border: 1px solid var(--line);
+      padding: 8px 12px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .wday.on {
+      border-color: var(--brass);
+      color: #1a140c;
+      background: var(--brass);
+      font-weight: 700;
+    }
+    .seg-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+    .seg-row input[type="time"] { color-scheme: dark; }
+    .seg-row .rm {
+      border-color: #6e6558;
+      color: #9a9082;
+      padding: 10px 12px;
+      letter-spacing: 0.08em;
+    }
+    .limits {
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #6e6558;
+    }
   </style>
 </head>
 <body>
@@ -221,6 +257,34 @@
     </section>
 
     <section>
+      <h2>设备亮屏时段</h2>
+      <p class="hint">
+        可增删多段亮屏（同一天内）。未勾选的星期全天休眠。<br />
+        <strong style="color:#9a9082;font-weight:500">限制：</strong>
+        每段至少 <code>30</code> 分钟；相邻段空隙至少 <code>15</code> 分钟；最多 <code>6</code> 段。
+        空隙过短时设备刚开机校时就要再睡，容易空转。
+      </p>
+      <label>
+        <input id="power_enabled" type="checkbox" checked style="width:auto;margin-right:8px;vertical-align:middle" />
+        启用自动开关机
+      </label>
+      <label>每周亮屏日（可多选）</label>
+      <div class="wdays" id="weekdays"></div>
+      <div class="actions" style="margin:4px 0 12px">
+        <button type="button" id="btn-wd-work">工作日</button>
+        <button type="button" id="btn-wd-all">整周</button>
+        <button type="button" id="btn-wd-clear">清空</button>
+      </div>
+      <label>亮屏时段</label>
+      <div id="seg-list"></div>
+      <div class="actions">
+        <button type="button" id="btn-seg-add">增加一段</button>
+      </div>
+      <p class="limits" id="power-limits-hint"></p>
+      <div class="msg" id="power-msg"></div>
+    </section>
+
+    <section>
       <h2>马上换一批</h2>
       <p class="hint">按当前选书类型重新找书并推到主页，一般要几分钟。</p>
       <div class="actions">
@@ -246,19 +310,31 @@
 
     <section>
       <h2>设备拉取地址</h2>
-      <p class="hint">Tab5 读的就是这个地址：</p>
+      <p class="hint">片单与亮屏设置分别是：</p>
       <p><code id="device-url">./weread_day.json</code></p>
+      <p><code id="settings-url">./settings.json</code></p>
     </section>
   </div>
 
   <script>
     const LS_TOKEN = "tab5_weread_gh_token";
     const LS_REPO = "tab5_weread_gh_repo";
+    const POWER_LIMITS = { min_on_minutes: 30, min_gap_minutes: 15, max_segments: 6 };
+    const WDAY_LABELS = [
+      { iso: 1, label: "一" }, { iso: 2, label: "二" }, { iso: 3, label: "三" },
+      { iso: 4, label: "四" }, { iso: 5, label: "五" }, { iso: 6, label: "六" },
+      { iso: 7, label: "日" },
+    ];
     let siteConfig = { repo: "", workflow: "daily.yml" };
     let catalog = { categories: [], default_lanes: [], default_blacklist: [] };
     let pickIds = [];
     let banIds = [];
     let dragId = null;
+    let powerWeekdays = new Set([1, 2, 3, 4, 5]);
+    let powerSegments = [
+      { start: "08:00", end: "12:00" },
+      { start: "14:00", end: "20:00" },
+    ];
 
     function $(id) { return document.getElementById(id); }
     function setMsg(id, text, ok) {
@@ -280,6 +356,7 @@
     }
     function refreshDeviceUrl() {
       $("device-url").textContent = pagesDayUrl();
+      $("settings-url").textContent = pagesDayUrl().replace(/weread_day\.json$/, "settings.json");
       const repo = currentRepo();
       $("actions-link").href = repo
         ? `https://github.com/${repo}/actions/workflows/${siteConfig.workflow || "daily.yml"}`
@@ -388,14 +465,134 @@
       banIds = bans;
     }
 
+    function toMin(hhmm) {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || "");
+      if (!m) return null;
+      const h = Number(m[1]);
+      const mi = Number(m[2]);
+      if (h > 23 || mi > 59) return null;
+      return h * 60 + mi;
+    }
+    function validatePower() {
+      if (!$("power_enabled").checked) return { ok: true };
+      if (!powerWeekdays.size) return { ok: false, msg: "请至少选择一个亮屏日" };
+      if (!powerSegments.length) return { ok: false, msg: "请至少保留一段亮屏" };
+      if (powerSegments.length > POWER_LIMITS.max_segments) {
+        return { ok: false, msg: `最多 ${POWER_LIMITS.max_segments} 段` };
+      }
+      const segs = powerSegments.map((s, i) => {
+        const a = toMin(s.start);
+        const b = toMin(s.end);
+        return { i, a, b, start: s.start, end: s.end };
+      });
+      for (const s of segs) {
+        if (s.a == null || s.b == null) return { ok: false, msg: `第 ${s.i + 1} 段时间格式无效` };
+        if (s.b <= s.a) return { ok: false, msg: `第 ${s.i + 1} 段结束须晚于开始（暂不支持跨午夜单段）` };
+        if (s.b - s.a < POWER_LIMITS.min_on_minutes) {
+          return { ok: false, msg: `第 ${s.i + 1} 段短于 ${POWER_LIMITS.min_on_minutes} 分钟` };
+        }
+      }
+      segs.sort((x, y) => x.a - y.a);
+      for (let i = 0; i + 1 < segs.length; i++) {
+        if (segs[i + 1].a < segs[i].b) return { ok: false, msg: "时段不能重叠" };
+        if (segs[i + 1].a - segs[i].b < POWER_LIMITS.min_gap_minutes) {
+          return { ok: false, msg: `相邻段空隙须 ≥ ${POWER_LIMITS.min_gap_minutes} 分钟` };
+        }
+      }
+      const wrap = (24 * 60 - segs[segs.length - 1].b) + segs[0].a;
+      if (wrap < POWER_LIMITS.min_gap_minutes) {
+        return { ok: false, msg: `跨午夜空隙须 ≥ ${POWER_LIMITS.min_gap_minutes} 分钟` };
+      }
+      return { ok: true };
+    }
+    function renderWeekdays() {
+      const box = $("weekdays");
+      box.innerHTML = "";
+      WDAY_LABELS.forEach(({ iso, label }) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "wday" + (powerWeekdays.has(iso) ? " on" : "");
+        el.textContent = label;
+        el.addEventListener("click", () => {
+          if (powerWeekdays.has(iso)) powerWeekdays.delete(iso);
+          else powerWeekdays.add(iso);
+          renderWeekdays();
+        });
+        box.appendChild(el);
+      });
+    }
+    function renderSegments() {
+      const box = $("seg-list");
+      box.innerHTML = "";
+      powerSegments.forEach((seg, idx) => {
+        const row = document.createElement("div");
+        row.className = "seg-row";
+        row.innerHTML = `
+          <div>
+            <label>开始</label>
+            <input type="time" value="${seg.start}" data-k="start" data-i="${idx}" />
+          </div>
+          <div>
+            <label>结束</label>
+            <input type="time" value="${seg.end}" data-k="end" data-i="${idx}" />
+          </div>
+          <button type="button" class="rm" data-rm="${idx}">删除</button>
+        `;
+        box.appendChild(row);
+      });
+      box.querySelectorAll("input[type=time]").forEach((inp) => {
+        inp.addEventListener("change", () => {
+          const i = Number(inp.dataset.i);
+          const k = inp.dataset.k;
+          powerSegments[i][k] = inp.value;
+          const v = validatePower();
+          setMsg("power-msg", v.ok ? "" : v.msg, v.ok ? null : false);
+        });
+      });
+      box.querySelectorAll("[data-rm]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.rm);
+          if (powerSegments.length <= 1) {
+            setMsg("power-msg", "至少保留一段", false);
+            return;
+          }
+          powerSegments.splice(i, 1);
+          renderSegments();
+        });
+      });
+      $("power-limits-hint").textContent =
+        `当前 ${powerSegments.length}/${POWER_LIMITS.max_segments} 段 · 最短亮屏 ${POWER_LIMITS.min_on_minutes} 分 · 最短空隙 ${POWER_LIMITS.min_gap_minutes} 分`;
+      $("btn-seg-add").disabled = powerSegments.length >= POWER_LIMITS.max_segments;
+    }
+    function fillPower(s) {
+      const p = (s && s.power) || {};
+      $("power_enabled").checked = p.enabled !== false;
+      const wd = Array.isArray(p.weekdays) ? p.weekdays : [1, 2, 3, 4, 5];
+      powerWeekdays = new Set(wd.filter((d) => d >= 1 && d <= 7));
+      const segs = Array.isArray(p.segments) && p.segments.length
+        ? p.segments.map((x) => ({ start: x.start || "08:00", end: x.end || "09:00" }))
+        : [
+            { start: "08:00", end: "12:00" },
+            { start: "14:00", end: "20:00" },
+          ];
+      powerSegments = segs.slice(0, POWER_LIMITS.max_segments);
+      renderWeekdays();
+      renderSegments();
+      setMsg("power-msg", "");
+    }
     function fillSettings(s) {
       $("playlist_size").value = s.playlist_size ?? 5;
       $("daily_hour").value = s.daily_hour ?? 7;
       $("note").value = s.note || "";
       normalizeLists(s || {});
       renderLists();
+      fillPower(s || {});
     }
     function readSettingsForm() {
+      const weekdays = [...powerWeekdays].sort((a, b) => a - b);
+      const segments = powerSegments
+        .map((s) => ({ start: s.start, end: s.end }))
+        .sort((a, b) => toMin(a.start) - toMin(b.start));
       return {
         playlist_size: Number($("playlist_size").value) || 5,
         daily_hour: Number($("daily_hour").value) || 7,
@@ -403,6 +600,12 @@
         lanes: pickIds.slice(),
         blacklist: banIds.slice(),
         note: $("note").value || "",
+        power: {
+          enabled: !!$("power_enabled").checked,
+          weekdays,
+          segments,
+          limits: { ...POWER_LIMITS },
+        },
       };
     }
 
@@ -471,14 +674,35 @@
       setMsg("token-msg", "已清除。", true);
     });
     $("repo").addEventListener("input", refreshDeviceUrl);
+    $("btn-seg-add").addEventListener("click", () => {
+      if (powerSegments.length >= POWER_LIMITS.max_segments) return;
+      powerSegments.push({ start: "18:00", end: "20:00" });
+      renderSegments();
+    });
+    $("btn-wd-work").addEventListener("click", () => {
+      powerWeekdays = new Set([1, 2, 3, 4, 5]);
+      renderWeekdays();
+    });
+    $("btn-wd-all").addEventListener("click", () => {
+      powerWeekdays = new Set([1, 2, 3, 4, 5, 6, 7]);
+      renderWeekdays();
+    });
+    $("btn-wd-clear").addEventListener("click", () => {
+      powerWeekdays = new Set();
+      renderWeekdays();
+    });
     $("btn-save").addEventListener("click", async () => {
       setMsg("settings-msg", "保存中…");
+      setMsg("power-msg", "");
       try {
         if (!pickIds.length) throw new Error("选书类型不能为空");
-        await putFile("docs/settings.json", readSettingsForm(), "chore: update weread type prefs");
-        setMsg("settings-msg", "设置已保存。", true);
+        const pv = validatePower();
+        if (!pv.ok) throw new Error(pv.msg);
+        await putFile("docs/settings.json", readSettingsForm(), "chore: update weread board settings");
+        setMsg("settings-msg", "设置已保存（含亮屏时段）。设备约 30 分钟内或重启后生效。", true);
       } catch (e) {
         setMsg("settings-msg", String(e.message || e), false);
+        setMsg("power-msg", String(e.message || e), false);
       }
     });
     $("btn-run").addEventListener("click", async () => {

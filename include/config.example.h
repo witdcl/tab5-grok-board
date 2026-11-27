@@ -16,6 +16,7 @@
 // 例：https://<user>.github.io/tab5-grok-board/weread_day.json
 #define WEREAD_DAY_URL "https://witdcl.github.io/tab5-grok-board/weread_day.json"
 #define WEREAD_BOOK_URL "https://witdcl.github.io/tab5-grok-board/weread_book.json"
+#define WEREAD_SETTINGS_URL "https://witdcl.github.io/tab5-grok-board/settings.json"
 
-// 电源节奏（固件内置，无需改这里）：每日 08:00–12:00、14:00–20:00 亮屏，
-// 其余时段 RTC 休眠到下一开机点。开机后约 90 秒宽限再执行休眠。
+// 亮屏时段在 Pages settings.json 的 power 字段配置（可多段）。
+// 限制：每段 ≥30 分钟，段间空隙 ≥15 分钟，最多 6 段。
