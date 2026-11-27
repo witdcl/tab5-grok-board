@@ -341,11 +341,24 @@
 
     <section>
       <h2>换屏与显示</h2>
-      <p class="hint">设备三屏自动轮播间隔；网页预览可单独设得更快方便点选。</p>
+      <p class="hint">
+        每屏停留控制三屏轮播；换书间隔是同一本最少展示多久再切下一本（到点后从第 1 屏开始）。<br />
+        亮度 10–100（百分比）。网页预览可单独设得更快方便点选。
+      </p>
       <div class="row">
         <div>
           <label for="page_seconds">设备每屏停留（秒）</label>
           <input id="page_seconds" type="number" min="5" max="120" step="1" />
+        </div>
+        <div>
+          <label for="book_seconds">换书间隔（秒）</label>
+          <input id="book_seconds" type="number" min="15" max="1800" step="1" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="brightness">屏幕亮度（%）</label>
+          <input id="brightness" type="number" min="10" max="100" step="1" />
         </div>
         <div>
           <label for="preview_page_seconds">网页预览每屏（秒）</label>
@@ -701,6 +714,8 @@
       $("note").value = s.note || "";
       const d = (s && s.display) || {};
       $("page_seconds").value = d.page_seconds ?? 30;
+      $("book_seconds").value = d.book_seconds ?? 90;
+      $("brightness").value = d.brightness ?? 100;
       $("preview_page_seconds").value = d.preview_page_seconds ?? 7;
       normalizeLists(s || {});
       renderLists();
@@ -715,10 +730,17 @@
         .map((s) => ({ start: s.start, end: s.end }))
         .sort((a, b) => toMin(a.start) - toMin(b.start));
       let pageSec = Number($("page_seconds").value);
+      let bookSec = Number($("book_seconds").value);
+      let bri = Number($("brightness").value);
       let previewSec = Number($("preview_page_seconds").value);
       if (!Number.isFinite(pageSec)) pageSec = 30;
+      if (!Number.isFinite(bookSec)) bookSec = 90;
+      if (!Number.isFinite(bri)) bri = 100;
       if (!Number.isFinite(previewSec)) previewSec = 7;
       pageSec = Math.min(120, Math.max(5, Math.round(pageSec)));
+      bookSec = Math.min(1800, Math.max(15, Math.round(bookSec)));
+      if (bookSec < pageSec) bookSec = pageSec;
+      bri = Math.min(100, Math.max(10, Math.round(bri)));
       previewSec = Math.min(60, Math.max(3, Math.round(previewSec)));
       return {
         playlist_size: Number($("playlist_size").value) || 5,
@@ -729,6 +751,8 @@
         note: $("note").value || "",
         display: {
           page_seconds: pageSec,
+          book_seconds: bookSec,
+          brightness: bri,
           preview_page_seconds: previewSec,
         },
         power: {
@@ -846,7 +870,7 @@
       setMsg("token-msg", "已清除。", true);
     });
     $("repo").addEventListener("input", refreshDeviceUrl);
-    ["playlist_size", "daily_hour", "note", "page_seconds", "preview_page_seconds", "power_enabled"].forEach((id) => {
+    ["playlist_size", "daily_hour", "note", "page_seconds", "book_seconds", "brightness", "preview_page_seconds", "power_enabled"].forEach((id) => {
       const el = $(id);
       el.addEventListener("change", markDirty);
       el.addEventListener("input", markDirty);

@@ -16,6 +16,17 @@
 
 namespace {
 
+int clamp_int(int v, int lo, int hi)
+{
+    if (v < lo) {
+        return lo;
+    }
+    if (v > hi) {
+        return hi;
+    }
+    return v;
+}
+
 // —— 与设置页同一套硬限制 ——
 constexpr int kMinOnMinutes = 30;
 constexpr int kMinGapMinutes = 15;
@@ -42,9 +53,17 @@ struct PowerConfig {
 constexpr int kDefaultPageSec = 30;
 constexpr int kMinPageSec = 5;
 constexpr int kMaxPageSec = 120;
+constexpr int kDefaultBookSec = 90;
+constexpr int kMinBookSec = 15;
+constexpr int kMaxBookSec = 1800;
+constexpr int kDefaultBrightnessPct = 100;
+constexpr int kMinBrightnessPct = 10;
+constexpr int kMaxBrightnessPct = 100;
 
 PowerConfig cfg {};
 int page_seconds = kDefaultPageSec;
+int book_seconds = kDefaultBookSec;
+int brightness_pct = kDefaultBrightnessPct;
 bool ntp_started = false;
 bool network_time_ok = false;
 bool clock_latched = false;
@@ -234,24 +253,39 @@ void apply_defaults()
 {
     cfg = PowerConfig {};
     page_seconds = kDefaultPageSec;
+    book_seconds = kDefaultBookSec;
+    brightness_pct = kDefaultBrightnessPct;
     settings_loaded = false;
+}
+
+bool json_number(JsonVariantConst v, int* out)
+{
+    if (v.is<int>() || v.is<long>() || v.is<float>() || v.is<double>()) {
+        *out = v.as<int>();
+        return true;
+    }
+    return false;
 }
 
 void apply_display(JsonVariantConst display)
 {
-    if (!display["page_seconds"].is<int>() && !display["page_seconds"].is<long>() &&
-        !display["page_seconds"].is<float>()) {
-        return;
+    int v = 0;
+    if (json_number(display["page_seconds"], &v)) {
+        page_seconds = clamp_int(v, kMinPageSec, kMaxPageSec);
     }
-    int sec = display["page_seconds"].as<int>();
-    if (sec < kMinPageSec) {
-        sec = kMinPageSec;
+    if (json_number(display["book_seconds"], &v)) {
+        book_seconds = clamp_int(v, kMinBookSec, kMaxBookSec);
     }
-    if (sec > kMaxPageSec) {
-        sec = kMaxPageSec;
+    if (json_number(display["brightness"], &v)) {
+        brightness_pct = clamp_int(v, kMinBrightnessPct, kMaxBrightnessPct);
     }
-    page_seconds = sec;
-    Serial.printf("power schedule: page_seconds=%d\n", page_seconds);
+    // 换书间隔至少覆盖一屏，避免刚翻页就换书
+    if (book_seconds < page_seconds) {
+        book_seconds = page_seconds;
+    }
+    Serial.printf("power schedule: page=%ds book=%ds brightness=%d%%\n", page_seconds, book_seconds,
+                  brightness_pct);
+    board_settings_apply_brightness();
 }
 
 const char* settings_url()
@@ -353,8 +387,7 @@ void reload_settings_if_due(bool force)
         }
         cfg = next;
         settings_loaded = true;
-        Serial.printf("power schedule: loaded segs=%d enabled=%d page=%ds\n", cfg.seg_count,
-                      cfg.enabled ? 1 : 0, page_seconds);
+        Serial.printf("power schedule: loaded segs=%d enabled=%d\n", cfg.seg_count, cfg.enabled ? 1 : 0);
         return;
     }
 
@@ -500,6 +533,45 @@ uint32_t board_settings_page_ms()
         sec = kMaxPageSec;
     }
     return static_cast<uint32_t>(sec) * 1000U;
+}
+
+uint32_t board_settings_book_ms()
+{
+    int sec = book_seconds;
+    if (sec < kMinBookSec) {
+        sec = kMinBookSec;
+    }
+    if (sec > kMaxBookSec) {
+        sec = kMaxBookSec;
+    }
+    if (sec < page_seconds) {
+        sec = page_seconds;
+    }
+    return static_cast<uint32_t>(sec) * 1000U;
+}
+
+uint8_t board_settings_brightness()
+{
+    int pct = brightness_pct;
+    if (pct < kMinBrightnessPct) {
+        pct = kMinBrightnessPct;
+    }
+    if (pct > kMaxBrightnessPct) {
+        pct = kMaxBrightnessPct;
+    }
+    int bri = (pct * 255 + 50) / 100;
+    if (bri < 20) {
+        bri = 20;
+    }
+    if (bri > 255) {
+        bri = 255;
+    }
+    return static_cast<uint8_t>(bri);
+}
+
+void board_settings_apply_brightness()
+{
+    M5.Display.setBrightness(board_settings_brightness());
 }
 
 void power_schedule_poll()

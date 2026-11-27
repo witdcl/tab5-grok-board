@@ -111,7 +111,7 @@ void setup()
     M5.begin(cfg);
     Serial.begin(115200);
     delay(50);
-    M5.Display.setBrightness(255);
+    board_settings_apply_brightness();
 
     weread_ui_begin();
     Serial.println("Tab5 WeRead board (day playlist)");
@@ -124,7 +124,7 @@ void setup()
     boot.ok = false;
     std::snprintf(boot.error, sizeof(boot.error), "%s", "连上 Wi-Fi 后拉取今日片单");
     weread_ui_set_book(boot);
-    M5.Display.setBrightness(255);
+    board_settings_apply_brightness();
 }
 
 void loop()

@@ -46,6 +46,7 @@ int g_book_n = 0;
 int g_book_i = 0;
 uint8_t g_page = 0;
 uint32_t g_page_since = 0;
+uint32_t g_book_since = 0;
 
 struct CoverSlot {
     uint8_t* jpg = nullptr;
@@ -99,6 +100,11 @@ void free_slide()
     g_gfx = &lcd;
 }
 
+uint8_t target_bri()
+{
+    return board_settings_brightness();
+}
+
 void end_trans()
 {
     if (g_slide != nullptr) {
@@ -107,7 +113,7 @@ void end_trans()
     free_slide();
     g_trans = Trans::Idle;
     g_page_since = millis();
-    lcd.setBrightness(255);
+    lcd.setBrightness(target_bri());
 }
 
 // 目标字号（px）。efont 只有 16/24；优先整数倍（16/24/32/48）避免锯齿。
@@ -861,7 +867,8 @@ void tick_trans()
             return;
         }
         const float t = ease_in_out_cubic(raw);
-        const int bri = 255 - static_cast<int>(t * static_cast<float>(255 - kDimBri));
+        const int hi = static_cast<int>(target_bri());
+        const int bri = hi - static_cast<int>(t * static_cast<float>(hi - kDimBri));
         lcd.setBrightness(bri < kDimBri ? kDimBri : bri);
         return;
     }
@@ -873,8 +880,9 @@ void tick_trans()
         return;
     }
     const float t = ease_in_out_cubic(raw);
-    const int bri = kDimBri + static_cast<int>(t * static_cast<float>(255 - kDimBri));
-    lcd.setBrightness(bri > 255 ? 255 : bri);
+    const int hi = static_cast<int>(target_bri());
+    const int bri = kDimBri + static_cast<int>(t * static_cast<float>(hi - kDimBri));
+    lcd.setBrightness(bri > hi ? hi : bri);
 }
 
 bool start_trans(uint8_t new_page, int /*dir*/)
@@ -921,9 +929,28 @@ void select_book(int idx, bool with_fade_to_page0)
     bind_cover_slot(g_book_i);
     g_page = 0;
     g_page_since = millis();
+    g_book_since = millis();
     if (with_fade_to_page0 && g_book.ok) {
         (void)start_trans(0, 1);
     }
+}
+
+void advance_auto()
+{
+    // 到换书时间：切下一本并从第 0 屏开始；否则只在本内 0→1→2→0 循环
+    if (millis() - g_book_since >= board_settings_book_ms()) {
+        const int next = (g_book_i + 1) % g_book_n;
+        g_book_i = next;
+        g_book = g_books[g_book_i];
+        (void)ensure_cover_ready(g_book_i);
+        bind_cover_slot(g_book_i);
+        g_book_since = millis();
+        Serial.printf("rotate book %d/%d %s\n", g_book_i + 1, g_book_n, g_book.title);
+        (void)start_trans(0, 1);
+        return;
+    }
+    const uint8_t next_page = static_cast<uint8_t>((g_page + 1) % 3);
+    (void)start_trans(next_page, 1);
 }
 
 void change_page(int delta)
@@ -945,6 +972,7 @@ void change_page(int delta)
         g_book = g_books[g_book_i];
         (void)ensure_cover_ready(g_book_i);
         bind_cover_slot(g_book_i);
+        g_book_since = millis();
         Serial.printf("rotate book %d/%d %s\n", g_book_i + 1, g_book_n, g_book.title);
     }
     (void)start_trans(static_cast<uint8_t>(page), delta > 0 ? 1 : -1);
@@ -957,7 +985,7 @@ void weread_ui_begin()
     if (lcd.height() > lcd.width()) {
         lcd.setRotation(3);
     }
-    lcd.setBrightness(255);
+    board_settings_apply_brightness();
     g_gfx = &lcd;
     gfx().fillScreen(kInk);
     font_px(28, true);
@@ -967,6 +995,7 @@ void weread_ui_begin()
     g_book_i = 0;
     g_book_n = 0;
     g_page_since = millis();
+    g_book_since = millis();
     g_trans = Trans::Idle;
     Serial.printf("weread ui %dx%d\n", lcd.width(), lcd.height());
 }
@@ -982,6 +1011,7 @@ void weread_ui_set_book(const WereadBook& book)
     g_book = book;
     g_page = 0;
     g_page_since = millis();
+    g_book_since = millis();
     if (g_book.ok) {
         (void)download_cover_slot(0, g_book.cover_url);
         bind_cover_slot(0);
@@ -993,7 +1023,7 @@ void weread_ui_set_book(const WereadBook& book)
         (void)start_trans(0, 1);
     } else {
         redraw();
-        lcd.setBrightness(255);
+        board_settings_apply_brightness();
     }
 }
 
@@ -1009,7 +1039,7 @@ void weread_ui_set_day(const WereadDay& day)
         std::snprintf(g_book.error, sizeof(g_book.error), "%s", msg);
         bind_cover_slot(-1);
         redraw();
-        lcd.setBrightness(255);
+        board_settings_apply_brightness();
     };
     if (!day.ok || day.count <= 0) {
         show_err(day.error[0] ? day.error : "今日片单为空");
@@ -1043,7 +1073,7 @@ void weread_ui_tick()
     }
     retry_missing_covers_tick();
     if (millis() - g_page_since >= board_settings_page_ms()) {
-        weread_ui_next();
+        advance_auto();
     }
 }
 
