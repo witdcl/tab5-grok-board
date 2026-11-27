@@ -3,25 +3,25 @@
   "daily_hour": 7,
   "timezone": "Asia/Shanghai",
   "lanes": [
+    "poetry",
+    "society",
+    "essay",
+    "reportage",
+    "mystery",
     "novel",
     "world_lit",
     "literature",
-    "essay",
-    "mystery",
+    "art",
     "scifi",
     "history",
     "biography",
-    "reportage",
-    "society",
     "philosophy",
     "psychology",
     "finance",
     "science",
     "computer",
-    "art",
     "nature",
     "politics",
-    "poetry",
     "travel"
   ],
   "blacklist": [
@@ -45,10 +45,22 @@
   "note": "选书类型可拖拽排序：越靠前略优先，最后仍可能中选。黑名单类型一定不会出现。",
   "power": {
     "enabled": true,
-    "weekdays": [1, 2, 3, 4, 5],
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "segments": [
-      { "start": "08:00", "end": "12:00" },
-      { "start": "14:00", "end": "20:00" }
+      {
+        "start": "08:00",
+        "end": "12:00"
+      },
+      {
+        "start": "14:00",
+        "end": "20:00"
+      }
     ],
     "limits": {
       "min_on_minutes": 30,
